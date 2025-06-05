@@ -1,95 +1,104 @@
 package com.botamochi.rcap.client;
 
-import com.botamochi.rcap.data.PassengerData;
-import com.botamochi.rcap.data.PassengerRenderData;
+import com.botamochi.rcap.Rcap;
+import com.botamochi.rcap.passenger.Passenger;
+import com.botamochi.rcap.passenger.PassengerManager;
 import com.mojang.authlib.GameProfile;
+
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.OtherClientPlayerEntity;
+import net.minecraft.client.network.AbstractClientPlayerEntity;
+import net.minecraft.client.render.Camera;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.render.entity.EntityRenderDispatcher;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.network.encryption.PlayerPublicKey;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.render.OverlayTexture;
 
 public class PassengerRenderer {
-    public static void init() {
-        WorldRenderEvents.AFTER_ENTITIES.register(context -> {
-            MinecraftClient mc = MinecraftClient.getInstance();
-            ClientWorld world = mc.world;
-            if (world == null) return;
 
-            Vec3d cameraPos = context.camera().getPos();
-            VertexConsumerProvider vertexConsumers = context.consumers();
+    private static final MinecraftClient CLIENT = MinecraftClient.getInstance();
 
-            for (PassengerRenderData p : PassengerClientCache.PASSENGERS) {
-                // 無効な乗客は描画しない
-                if (p.pos == null || p.prevPos == null) continue;
-                if (Double.isNaN(p.pos.x) || Double.isNaN(p.pos.y) || Double.isNaN(p.pos.z)) continue;
+    /** Blockbench で使ったテクスチャを指す右辺と一致させる */
+    private static final Identifier PASSENGER_TEXTURE =
+            new Identifier(Rcap.MOD_ID, "textures/entity/passenger_1.png");
 
-                GameProfile profile = new GameProfile(p.id, "");
-                OtherClientPlayerEntity fakePlayer = new OtherClientPlayerEntity(world, profile, null);
+    /**
+     * クライアント起動時に一度だけ呼ばれるよう登録する。
+     */
+    public static void register() {
+        WorldRenderEvents.AFTER_TRANSLUCENT.register(PassengerRenderer::onWorldRender);
+    }
 
-                // ネームタグ非表示
-                fakePlayer.setCustomNameVisible(false);
-                fakePlayer.setCustomName(null);
+    private static void onWorldRender(WorldRenderContext context) {
+        // レンダラや行列、カメラ位置などを取得
+        EntityRenderDispatcher dispatcher = CLIENT.getEntityRenderDispatcher();
+        MatrixStack    matrices  = context.matrixStack();
+        Camera         camera    = context.camera();
+        Vec3d          camPos    = camera.getPos();
+        VertexConsumerProvider consumers = context.consumers();
 
-                Vec3d pos = p.pos;
-                Vec3d prevPos = p.prevPos;
-
-                // 地面補正
-                double y = pos.y;
-                BlockPos bp = new BlockPos(pos.x, (int) y, pos.z);
-                while (y > world.getBottomY() && world.getBlockState(bp.down()).isAir()) {
-                    y -= 1;
-                    bp = bp.down();
-                }
-                pos = new Vec3d(pos.x, y, pos.z);
-                prevPos = new Vec3d(prevPos.x, y, prevPos.z);
-
-                // 進行方向
-                double dx = pos.x - prevPos.x;
-                double dz = pos.z - prevPos.z;
-                double dist = Math.sqrt(dx * dx + dz * dz);
-
-                float yaw = fakePlayer.getYaw();
-                if (dist > 1e-4) {
-                    yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
-                }
-
-                // プレイヤーにより近い挙動
-                fakePlayer.setYaw(yaw);
-                fakePlayer.setBodyYaw(yaw);
-                fakePlayer.setHeadYaw(yaw);
-
-                // 歩行アニメーション
-                float limbDistance = (float) dist;
-                if ((p.motionState == PassengerData.MotionState.WALKING_TO_EXIT || p.motionState == PassengerData.MotionState.WALKING_TO_PLATFORM) && dist > 1e-4) {
-                    fakePlayer.limbDistance = limbDistance;
-                    fakePlayer.limbAngle += limbDistance * 4.0f; // 歩幅調整
-                } else {
-                    fakePlayer.limbDistance = 0.0f;
-                }
-                fakePlayer.lastLimbDistance = fakePlayer.limbDistance;
-
-                fakePlayer.setPos(pos.x, pos.y, pos.z);
-                fakePlayer.prevX = prevPos.x;
-                fakePlayer.prevY = prevPos.y;
-                fakePlayer.prevZ = prevPos.z;
-
-                context.matrixStack().push();
-                mc.getEntityRenderDispatcher().render(
-                        fakePlayer,
-                        pos.x - cameraPos.x,
-                        pos.y - cameraPos.y,
-                        pos.z - cameraPos.z,
-                        yaw,
-                        context.tickDelta(),
-                        context.matrixStack(),
-                        vertexConsumers,
-                        15728880
+        // ベイク済みの ModelPart を使って PassengerModel インスタンスを生成
+        PassengerModel model =
+                new PassengerModel(
+                        CLIENT.getEntityModelLoader().getModelPart(PassengerModel.LAYER_LOCATION)
                 );
-                context.matrixStack().pop();
-            }
-        });
+
+        // ワールド時間＋tickDelta で ageInTicks を計算
+        double worldTime = CLIENT.world.getTime();
+        float tickDelta  = CLIENT.getTickDelta();
+        float ageInTicks = (float) worldTime + tickDelta;
+
+        // PassengerManager が管理する全乗客をイテレートして描画
+        for (Passenger p : PassengerManager.getPassengers()) {
+            Vec3d pos = p.pos;
+            double dx = pos.x - camPos.x;
+            double dy = pos.y - camPos.y;
+            double dz = pos.z - camPos.z;
+
+            // 擬似プレイヤーを生成し、向き・アニメーション用パラメータをコピーするだけ
+            AbstractClientPlayerEntity fakePlayer = new AbstractClientPlayerEntity(
+                    CLIENT.world,
+                    new GameProfile(java.util.UUID.randomUUID(), "Passenger"),
+                    (PlayerPublicKey) null
+            ) {
+                @Override
+                protected net.minecraft.client.network.PlayerListEntry getPlayerListEntry() {
+                    return null;
+                }
+            };
+
+            // 座標と向きのセット
+            fakePlayer.setPos(pos.x, pos.y, pos.z);
+
+            // ─── 描画処理 ───
+            matrices.push();
+            // 1. カメラ相対の位置に移動
+            matrices.translate(dx, dy, dz);
+            matrices.translate(0.0D, 1.375D, 0.0D);
+            matrices.scale(1f, -1f, 1f);
+
+            // テクスチャをバインドして VertexConsumer を取得
+            VertexConsumer vertexConsumer =
+                    consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(PASSENGER_TEXTURE));
+
+            // フルブライトで描画（必要に応じて環境光に合わせてください）
+            int light = 0xF000F0;
+            model.render(matrices, vertexConsumer, light, OverlayTexture.DEFAULT_UV, 1f, 1f, 1f, 1f);
+            matrices.pop();
+        }
+
+        // バッファを流し込む
+        if (consumers instanceof VertexConsumerProvider.Immediate) {
+            ((VertexConsumerProvider.Immediate) consumers).draw();
+        }
     }
 }

@@ -40,7 +40,7 @@ dependencies {
 
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-    modImplementation "curse.maven:minecraft-transit-railway-266707:4505539"
+    modImplementation "curse.maven:minecraft-transit-railway-266707:6587690"
 }
 
 processResources {
