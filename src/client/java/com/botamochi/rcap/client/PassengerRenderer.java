@@ -58,7 +58,7 @@ public class PassengerRenderer {
         float ageInTicks = (float) worldTime + tickDelta;
 
         // PassengerManager が管理する全乗客をイテレートして描画
-        for (Passenger p : PassengerManager.getPassengers()) {
+        for (ClientPassenger p : ClientPassengerManager.getPassengers()) {
             Vec3d pos = p.pos;
             double dx = pos.x - camPos.x;
             double dy = pos.y - camPos.y;
