@@ -24,12 +24,10 @@ public class CompanyDashboardOverlay {
     private WidgetBetterTextField searchField;
     private ButtonWidget addButton;
 
-    // 編集UI
     private WidgetBetterTextField nameField;
+    private WidgetBetterTextField colorField;
     private ButtonWidget saveButton;
     private ButtonWidget deleteButton;
-
-    private WidgetBetterTextField colorField;
     private ButtonWidget colorApplyButton;
 
     private Company selectedCompany = null;
@@ -60,7 +58,7 @@ public class CompanyDashboardOverlay {
                 (item, index) -> {},
                 this::getCompanyList,
                 searchField::getText,
-                s -> {}
+                text -> {}
         );
         dashboardList.y = searchField.y + FIELD_HEIGHT + PADDING;
         dashboardList.width = DashboardScreen.PANEL_WIDTH;
@@ -87,8 +85,13 @@ public class CompanyDashboardOverlay {
         nameField.y = screen.height - FIELD_HEIGHT - PADDING;
         screen.addDrawableChild(nameField);
 
+        colorField = new WidgetBetterTextField("#808080", 7);
+        colorField.setX(320);
+        colorField.y = screen.height - FIELD_HEIGHT - PADDING;
+        screen.addDrawableChild(colorField);
+
         saveButton = new ButtonWidget(
-                310,
+                400,
                 screen.height - FIELD_HEIGHT - PADDING,
                 60,
                 FIELD_HEIGHT,
@@ -98,15 +101,31 @@ public class CompanyDashboardOverlay {
                         selectedCompany.name = nameField.getText();
                         try {
                             selectedCompany.color = Integer.decode(colorField.getText());
-                        } catch(NumberFormatException ignored){}
+                        } catch(NumberFormatException ignored) {}
                         ClientNetworking.sendUpdateCompany(selectedCompany);
                         updateList();
                     }
                 });
         screen.addDrawableChild(saveButton);
 
+        colorApplyButton = new ButtonWidget(
+                470,
+                screen.height - FIELD_HEIGHT - PADDING,
+                30,
+                FIELD_HEIGHT,
+                Text.of(">"),
+                btn -> {
+                    if (selectedCompany != null) {
+                        try {
+                            selectedCompany.color = Integer.decode(colorField.getText());
+                            updateList();
+                        } catch(NumberFormatException ignored) {}
+                    }
+                });
+        screen.addDrawableChild(colorApplyButton);
+
         deleteButton = new ButtonWidget(
-                380,
+                510,
                 screen.height - FIELD_HEIGHT - PADDING,
                 60,
                 FIELD_HEIGHT,
@@ -123,27 +142,6 @@ public class CompanyDashboardOverlay {
                 });
         screen.addDrawableChild(deleteButton);
 
-        colorField = new WidgetBetterTextField("#808080", 7);
-        colorField.setX(450);
-        colorField.y = screen.height - FIELD_HEIGHT - PADDING;
-        screen.addDrawableChild(colorField);
-
-        colorApplyButton = new ButtonWidget(
-                500,
-                screen.height - FIELD_HEIGHT - PADDING,
-                30,
-                FIELD_HEIGHT,
-                Text.of(">"),
-                btn -> {
-                    if (selectedCompany != null) {
-                        try {
-                            selectedCompany.color = Integer.decode(colorField.getText());
-                            updateList();
-                        } catch(NumberFormatException ignored){}
-                    }
-                });
-        screen.addDrawableChild(colorApplyButton);
-
         visible = true;
         updateList();
     }
@@ -154,10 +152,10 @@ public class CompanyDashboardOverlay {
         screen.children().remove(searchField);
         screen.children().remove(addButton);
         screen.children().remove(nameField);
-        screen.children().remove(saveButton);
-        screen.children().remove(deleteButton);
         screen.children().remove(colorField);
+        screen.children().remove(saveButton);
         screen.children().remove(colorApplyButton);
+        screen.children().remove(deleteButton);
         screen.children().remove(dashboardList);
 
         visible = false;
@@ -176,11 +174,11 @@ public class CompanyDashboardOverlay {
         if (!visible) return;
         searchField.render(matrices, mouseX, mouseY, delta);
         nameField.render(matrices, mouseX, mouseY, delta);
+        colorField.render(matrices, mouseX, mouseY, delta);
         addButton.render(matrices, mouseX, mouseY, delta);
         saveButton.render(matrices, mouseX, mouseY, delta);
-        deleteButton.render(matrices, mouseX, mouseY, delta);
-        colorField.render(matrices, mouseX, mouseY, delta);
         colorApplyButton.render(matrices, mouseX, mouseY, delta);
+        deleteButton.render(matrices, mouseX, mouseY, delta);
         dashboardList.render(matrices, MinecraftClient.getInstance().textRenderer);
     }
 

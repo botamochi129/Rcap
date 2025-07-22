@@ -2,8 +2,8 @@ package com.botamochi.rcap.client.network;
 
 import com.botamochi.rcap.data.Company;
 import io.netty.buffer.Unpooled;
-import net.minecraft.network.PacketByteBuf;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.network.PacketByteBuf;
 import net.minecraft.util.Identifier;
 
 public class ClientNetworking {

@@ -26,12 +26,12 @@ public class ServerNetworking {
         });
 
         ServerPlayNetworking.registerGlobalReceiver(DELETE_COMPANY, (server, player, handler, buf, responseSender) -> {
-            int id = buf.readInt();
+            long id = buf.readLong();
             server.execute(() -> CompanyManager.removeById(id));
         });
 
         ServerPlayNetworking.registerGlobalReceiver(CREATE_COMPANY, (server, player, handler, buf, responseSender) -> {
-            int id = buf.readInt();
+            long id = buf.readLong();
             String name = buf.readString();
             int color = buf.readInt();
             server.execute(() -> {

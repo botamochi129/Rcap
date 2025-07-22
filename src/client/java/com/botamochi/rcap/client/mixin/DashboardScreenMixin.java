@@ -17,9 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(DashboardScreen.class)
 public abstract class DashboardScreenMixin extends Screen {
 
-    protected DashboardScreenMixin(Text title) {
-        super(title);
-    }
+    protected DashboardScreenMixin(Text title) { super(title); }
 
     @Shadow @Final protected ButtonWidget buttonTabStations;
     @Shadow @Final protected ButtonWidget buttonTabRoutes;
@@ -47,9 +45,11 @@ public abstract class DashboardScreenMixin extends Screen {
                     if (companyOverlay == null) {
                         companyOverlay = new CompanyDashboardOverlay((DashboardScreen) (Object) this);
                     }
+                    clearChildren();
                     companyOverlay.show();
                     deactivateTabs();
                     buttonTabCompany.active = false;
+                    addDrawableChild(buttonTabCompany); // ボタンは残す
                 });
         this.addDrawableChild(buttonTabCompany);
     }
@@ -86,5 +86,12 @@ public abstract class DashboardScreenMixin extends Screen {
         buttonTabStations.active = true;
         buttonTabRoutes.active = true;
         buttonTabDepots.active = true;
+    }
+
+    @Unique
+    public void clearChildren() {
+        while (!this.children().isEmpty()) {
+            this.children().remove(0);
+        }
     }
 }
