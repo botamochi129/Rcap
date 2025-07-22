@@ -1,4 +1,0 @@
-v1	named	intermediary
-FIELD	com/botamochi/rcap/client/mixin/DashboardScreenMixin	Lnet/minecraft/client/gui/widget/ClickableWidget;	buttonTabStations	buttonTabStations
-FIELD	com/botamochi/rcap/client/mixin/DashboardScreenMixin	Lnet/minecraft/client/gui/widget/ClickableWidget;	buttonTabRoutes	buttonTabRoutes
-FIELD	com/botamochi/rcap/client/mixin/DashboardScreenMixin	Lnet/minecraft/client/gui/widget/ClickableWidget;	buttonTabDepots	buttonTabDepots
