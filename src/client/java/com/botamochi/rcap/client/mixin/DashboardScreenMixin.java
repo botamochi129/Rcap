@@ -43,10 +43,17 @@ public abstract class DashboardScreenMixin extends Screen {
 
         // 会社タブ追加（すでに作成済みならスキップ）
         if (buttonTabCompany == null) {
-            buttonTabCompany = ButtonWidget.builder(Text.translatable("gui.rcap.companies"), btn -> {
-                isCompanyTab = true;
-                setCompanyTabActive();
-            }).dimensions(tabWidth * 3, 0, tabWidth, 20).build();
+            buttonTabCompany = new ButtonWidget(
+                    tabWidth * 3, // x
+                    0,            // y
+                    tabWidth,     // width
+                    20,           // height
+                    Text.translatable("gui.rcap.companies"), // ボタン表示テキスト
+                    btn -> {
+                        isCompanyTab = true;
+                        setCompanyTabActive();
+                    }
+            );
         }
         this.addDrawableChild(buttonTabCompany);
 

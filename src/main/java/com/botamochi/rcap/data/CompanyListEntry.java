@@ -1,10 +1,8 @@
 package com.botamochi.rcap.data;
 
 import mtr.data.NameColorDataBase;
-import mtr.data.TransportMode;
 
 public class CompanyListEntry extends NameColorDataBase {
-
     public final Company company;
 
     public CompanyListEntry(Company company) {

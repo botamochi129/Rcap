@@ -1,66 +1,42 @@
 package com.botamochi.rcap.client.screen;
 
+import com.botamochi.rcap.data.Company;
+import com.botamochi.rcap.data.CompanyListEntry;
+import com.botamochi.rcap.data.CompanyManager;
 import mtr.data.NameColorDataBase;
 import mtr.screen.DashboardList;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.util.math.MatrixStack;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
-/**
- * 「会社」タブ用のダッシュボードリスト。
- * 駅や路線と同じUIを流用し、管理・編集・削除も同様にできる。
- */
 public class CompanyDashboardList extends DashboardList {
-
-    private boolean visible = false;
-
-    public CompanyDashboardList(Screen parent) {
-        // 会社データ用に初期化
+    public CompanyDashboardList() {
         super(
-                (data, idx) -> {/* onFind: 詳細など */},
-                (data, idx) -> {/* onDrawArea: 会社範囲等（不要ならnullでOK） */},
-                (data, idx) -> {/* onEdit: 編集画面を開くなど */},
-                null, // onSort
-                null, // onAdd
-                (data, idx) -> {/* onDelete: 削除処理 */},
-                () -> getCompanyList(),
-                () -> "", // 検索文取得
-                s -> {}   // 検索文セット
+                (data, idx) -> {},                     // onFind
+                null,                                  // onDrawArea
+                (data, idx) -> {                       // onEdit
+                    if (data instanceof CompanyListEntry entry) {
+                        MinecraftClient.getInstance().setScreen(new EditCompanyScreen(entry.company));
+                    }
+                },
+                null,                                  // onSort
+                (data, idx) -> {                       // onAdd
+                    MinecraftClient.getInstance().setScreen(new EditCompanyScreen(null));
+                },
+                (data, idx) -> {                       // onDelete
+                    if (data instanceof CompanyListEntry entry) {
+                        CompanyManager.COMPANY_LIST.remove(entry.company);
+                        // サーバー同期が必要ならここでパケット送信
+                    }
+                },
+                CompanyDashboardList::getCompanyList,
+                () -> "", // 検索取得
+                s -> {}   // 検索セット
         );
-        // リストサイズ・表示位置は親のDashboardScreenを参照し調整
-        this.x = 0;
-        this.y = 20; // タブ下
-        this.width = 320;
-        this.height = 240;
     }
 
-    // 会社データのリスト取得（実装例）
     private static List<NameColorDataBase> getCompanyList() {
-        // CompanyManagerやClientDataから会社リストを取得
-        // ここでは空リストを返しているので、実際は会社データ構造を用意して返す
-        return new ArrayList<>();
-    }
-
-    public void show() {
-        visible = true;
-    }
-
-    public void hide() {
-        visible = false;
-    }
-
-    public void render(MatrixStack matrices, int mouseX, int mouseY, float delta) {
-        if (visible) {
-            super.render(matrices, MinecraftClient.getInstance().textRenderer);
-        }
-    }
-
-    public void tick() {
-        if (visible) {
-            super.tick();
-        }
+        return CompanyManager.COMPANY_LIST.stream().map(CompanyListEntry::new).collect(Collectors.toList());
     }
 }
