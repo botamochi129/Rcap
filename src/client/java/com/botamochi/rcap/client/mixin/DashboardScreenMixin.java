@@ -1,6 +1,6 @@
 package com.botamochi.rcap.client.mixin;
 
-import com.botamochi.rcap.client.screen.CompanyDashboardOverlay;
+import com.botamochi.rcap.client.screen.CompanyDashboardList;
 import mtr.screen.DashboardScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -23,14 +23,17 @@ public abstract class DashboardScreenMixin extends Screen {
     @Shadow @Final protected ButtonWidget buttonTabRoutes;
     @Shadow @Final protected ButtonWidget buttonTabDepots;
 
+    // 会社タブ関連
     @Unique private ButtonWidget buttonTabCompany;
-    @Unique private CompanyDashboardOverlay companyOverlay;
+    @Unique private CompanyDashboardList companyDashboardList;
     @Unique private boolean isCompanyTab = false;
 
     @Inject(method = "init", at = @At("TAIL"))
     private void injectCompanyTab(CallbackInfo ci) {
-        int tabWidth = DashboardScreen.PANEL_WIDTH / 4;
-
+        // タブを4分割
+        int tabCount = 4;
+        int tabWidth = DashboardScreen.PANEL_WIDTH / tabCount;
+        // 既存タブの位置・サイズ調整（yarn: ButtonWidgetのx/wなどはpublic）
         buttonTabStations.x = 0;
         buttonTabStations.setWidth(tabWidth);
         buttonTabRoutes.x = tabWidth;
@@ -38,28 +41,27 @@ public abstract class DashboardScreenMixin extends Screen {
         buttonTabDepots.x = tabWidth * 2;
         buttonTabDepots.setWidth(tabWidth);
 
-        buttonTabCompany = new ButtonWidget(tabWidth * 3, 0, tabWidth, 20,
-                Text.translatable("gui.rcap.companies"),
-                btn -> {
-                    isCompanyTab = true;
-                    if (companyOverlay == null) {
-                        companyOverlay = new CompanyDashboardOverlay((DashboardScreen) (Object) this);
-                    }
-                    clearChildren();
-                    companyOverlay.show();
-                    deactivateTabs();
-                    buttonTabCompany.active = false;
-                    addDrawableChild(buttonTabCompany); // ボタンは残す
-                });
+        // 会社タブ追加（すでに作成済みならスキップ）
+        if (buttonTabCompany == null) {
+            buttonTabCompany = ButtonWidget.builder(Text.translatable("gui.rcap.companies"), btn -> {
+                isCompanyTab = true;
+                setCompanyTabActive();
+            }).dimensions(tabWidth * 3, 0, tabWidth, 20).build();
+        }
         this.addDrawableChild(buttonTabCompany);
+
+        // 会社用DashboardList生成（初回のみ）
+        if (companyDashboardList == null) {
+            companyDashboardList = new CompanyDashboardList(this); // 会社用リストWidget（後述）
+        }
     }
 
     @Inject(method = "onSelectTab", at = @At("HEAD"), remap = false)
     private void onOtherTabSelected(CallbackInfo ci) {
         if (isCompanyTab) {
             isCompanyTab = false;
-            if (companyOverlay != null) {
-                companyOverlay.hide();
+            if (companyDashboardList != null) {
+                companyDashboardList.hide();
             }
             if (buttonTabCompany != null) {
                 buttonTabCompany.active = true;
@@ -69,29 +71,25 @@ public abstract class DashboardScreenMixin extends Screen {
 
     @Inject(method = "tick", at = @At("TAIL"))
     private void tickCompanyTab(CallbackInfo ci) {
-        if (isCompanyTab && companyOverlay != null) {
-            companyOverlay.tick();
+        if (isCompanyTab && companyDashboardList != null) {
+            companyDashboardList.tick();
         }
     }
 
     @Inject(method = "render", at = @At("TAIL"))
     private void renderCompanyTab(MatrixStack matrices, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-        if (isCompanyTab && companyOverlay != null) {
-            companyOverlay.render(matrices, mouseX, mouseY, delta);
+        if (isCompanyTab && companyDashboardList != null) {
+            companyDashboardList.render(matrices, mouseX, mouseY, delta);
         }
     }
 
     @Unique
-    private void deactivateTabs() {
+    private void setCompanyTabActive() {
+        // 他タブをactiveに、会社タブは非active
         buttonTabStations.active = true;
         buttonTabRoutes.active = true;
         buttonTabDepots.active = true;
-    }
-
-    @Unique
-    public void clearChildren() {
-        while (!this.children().isEmpty()) {
-            this.children().remove(0);
-        }
+        buttonTabCompany.active = false;
+        if (companyDashboardList != null) companyDashboardList.show();
     }
 }
