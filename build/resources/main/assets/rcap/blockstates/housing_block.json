@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "rcap:block/housing_block" }
+  }
+}
