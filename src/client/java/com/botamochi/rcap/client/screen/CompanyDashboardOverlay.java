@@ -8,7 +8,6 @@ import mtr.data.NameColorDataBase;
 import mtr.screen.DashboardList;
 import mtr.screen.DashboardScreen;
 import mtr.screen.WidgetBetterTextField;
-import mtr.screen.WidgetColorSelector;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.util.math.MatrixStack;
@@ -30,12 +29,15 @@ public class CompanyDashboardOverlay {
     private ButtonWidget saveButton;
     private ButtonWidget deleteButton;
 
+    private WidgetBetterTextField colorField;
+    private ButtonWidget colorApplyButton;
+
     private Company selectedCompany = null;
 
     private boolean visible = false;
 
-    private WidgetBetterTextField colorField;
-    private ButtonWidget colorApplyButton;
+    private static final int PADDING = 4;
+    private static final int FIELD_HEIGHT = 20;
 
     public CompanyDashboardOverlay(DashboardScreen screen) {
         this.screen = screen;
@@ -44,15 +46,11 @@ public class CompanyDashboardOverlay {
     public void show() {
         if (visible) return;
 
-        final int spacing = 4;
-
-        // 検索欄
         searchField = new WidgetBetterTextField("検索", 64);
-        searchField.setX(spacing);
+        searchField.setX(PADDING);
         searchField.y = 24;
         screen.addDrawableChild(searchField);
 
-        // リスト
         dashboardList = new DashboardList(
                 this::onSelect,
                 this::onClick,
@@ -62,43 +60,56 @@ public class CompanyDashboardOverlay {
                 (item, index) -> {},
                 this::getCompanyList,
                 searchField::getText,
-                text -> {}
+                s -> {}
         );
-        dashboardList.y = 50;
+        dashboardList.y = searchField.y + FIELD_HEIGHT + PADDING;
         dashboardList.width = DashboardScreen.PANEL_WIDTH;
-        dashboardList.height = screen.height - 140;
+        dashboardList.height = screen.height - dashboardList.y - 60;
         dashboardList.init(screen::addDrawableChild);
 
-        // 会社を追加
-        addButton = new ButtonWidget(spacing, screen.height - 32, 120, 20,
+        addButton = new ButtonWidget(
+                PADDING,
+                screen.height - FIELD_HEIGHT - PADDING,
+                120,
+                FIELD_HEIGHT,
                 Text.translatable("gui.rcap.add_company"),
                 btn -> {
                     Company company = new Company(CompanyManager.getNextId(), "新しい会社", 0x808080);
                     CompanyManager.COMPANY_LIST.add(company);
                     ClientNetworking.sendCreateCompany(company);
                     updateList();
-                });
+                }
+        );
         screen.addDrawableChild(addButton);
 
-        // 編集欄
         nameField = new WidgetBetterTextField("名前", 64);
         nameField.setX(140);
-        nameField.y = screen.height - 80;
+        nameField.y = screen.height - FIELD_HEIGHT - PADDING;
         screen.addDrawableChild(nameField);
 
-        saveButton = new ButtonWidget(310, screen.height - 80, 60, 20,
+        saveButton = new ButtonWidget(
+                310,
+                screen.height - FIELD_HEIGHT - PADDING,
+                60,
+                FIELD_HEIGHT,
                 Text.translatable("gui.rcap.save"),
                 btn -> {
                     if (selectedCompany != null) {
                         selectedCompany.name = nameField.getText();
-                        selectedCompany.color = Integer.decode(colorField.getText());
+                        try {
+                            selectedCompany.color = Integer.decode(colorField.getText());
+                        } catch(NumberFormatException ignored){}
                         ClientNetworking.sendUpdateCompany(selectedCompany);
                         updateList();
                     }
                 });
         screen.addDrawableChild(saveButton);
 
-        deleteButton = new ButtonWidget(380, screen.height - 80, 60, 20,
+        deleteButton = new ButtonWidget(
+                380,
+                screen.height - FIELD_HEIGHT - PADDING,
+                60,
+                FIELD_HEIGHT,
                 Text.translatable("gui.rcap.delete"),
                 btn -> {
                     if (selectedCompany != null) {
@@ -106,25 +117,31 @@ public class CompanyDashboardOverlay {
                         ClientNetworking.sendDeleteCompany(selectedCompany.id);
                         selectedCompany = null;
                         nameField.setText("");
+                        colorField.setText("");
                         updateList();
                     }
                 });
         screen.addDrawableChild(deleteButton);
 
-        //color
         colorField = new WidgetBetterTextField("#808080", 7);
-        colorField.setX(550);
-        colorField.y = screen.height - 80;
+        colorField.setX(450);
+        colorField.y = screen.height - FIELD_HEIGHT - PADDING;
         screen.addDrawableChild(colorField);
 
-        colorApplyButton = new ButtonWidget(620, screen.height - 80, 30, 20, Text.of(">"), btn -> {
-            try {
-                int parsedColor = Integer.decode(colorField.getText());
-                if (selectedCompany != null) {
-                    selectedCompany.color = parsedColor;
-                }
-            } catch (NumberFormatException e) {}
-        });
+        colorApplyButton = new ButtonWidget(
+                500,
+                screen.height - FIELD_HEIGHT - PADDING,
+                30,
+                FIELD_HEIGHT,
+                Text.of(">"),
+                btn -> {
+                    if (selectedCompany != null) {
+                        try {
+                            selectedCompany.color = Integer.decode(colorField.getText());
+                            updateList();
+                        } catch(NumberFormatException ignored){}
+                    }
+                });
         screen.addDrawableChild(colorApplyButton);
 
         visible = true;
@@ -139,17 +156,19 @@ public class CompanyDashboardOverlay {
         screen.children().remove(nameField);
         screen.children().remove(saveButton);
         screen.children().remove(deleteButton);
-        if (colorField != null) screen.children().remove(colorField);
-        if (colorApplyButton != null) screen.children().remove(colorApplyButton);
+        screen.children().remove(colorField);
+        screen.children().remove(colorApplyButton);
         screen.children().remove(dashboardList);
 
         visible = false;
+        selectedCompany = null;
     }
 
     public void tick() {
         if (!visible) return;
         searchField.tick();
         nameField.tick();
+        colorField.tick();
         dashboardList.tick();
     }
 
