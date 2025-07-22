@@ -4,9 +4,9 @@ import com.botamochi.rcap.block.HousingBlock;
 import com.botamochi.rcap.block.OfficeBlock;
 import com.botamochi.rcap.block.entity.HousingBlockEntity;
 import com.botamochi.rcap.block.entity.OfficeBlockEntity;
-import com.botamochi.rcap.item.CompanyManagerItem;
 import com.botamochi.rcap.network.HousingBlockPacketReceiver;
 import com.botamochi.rcap.network.OfficeBlockPacketReceiver;
+import com.botamochi.rcap.network.RcapServerPackets;
 import com.botamochi.rcap.screen.ModScreens;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
@@ -45,9 +45,9 @@ public class Rcap implements ModInitializer {
                 BlockEntityType.Builder.create(OfficeBlockEntity::new, OFFICE_BLOCK).build(null)
         );
 
-        Registry.register(Registry.ITEM, new Identifier("rcap", "company_manager"), new CompanyManagerItem(new Item.Settings().maxCount(1)));
-
         ModScreens.registerScreenHandlers();
+        RcapServerPackets.register();
+
         HousingBlockPacketReceiver.register();
         OfficeBlockPacketReceiver.register();
     }

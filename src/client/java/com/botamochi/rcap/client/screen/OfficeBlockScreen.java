@@ -1,8 +1,6 @@
 package com.botamochi.rcap.client.screen;
 
-import com.botamochi.rcap.network.HousingBlockPacketReceiver;
 import com.botamochi.rcap.network.OfficeBlockPacketReceiver;
-import com.botamochi.rcap.screen.HousingBlockScreenHandler;
 import com.botamochi.rcap.screen.OfficeBlockScreenHandler;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;

@@ -6,7 +6,9 @@ import java.util.List;
 public class CompanyManager {
     public static final List<Company> COMPANY_LIST = new ArrayList<>();
 
+    private static long nextId = 1;
+
     public static long getNextId() {
-        return COMPANY_LIST.stream().mapToLong(c -> c.id).max().orElse(0) + 1;
+        return nextId++;
     }
 }

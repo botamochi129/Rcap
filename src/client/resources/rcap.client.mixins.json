@@ -4,6 +4,7 @@
   "package": "com.botamochi.rcap.client.mixin",
   "compatibilityLevel": "JAVA_17",
   "client": [
+    "DashboardScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1
