@@ -1,18 +1,20 @@
 package com.botamochi.rcap.client.screen;
 
-import com.botamochi.rcap.data.Company;
 import mtr.data.NameColorDataBase;
-import mtr.data.TransportMode;
+import com.botamochi.rcap.data.Company;
 
 public class CompanyEntry extends NameColorDataBase {
 
-    public final Company company;
+    private final Company company;
 
     public CompanyEntry(Company company) {
-        super(company.id, TransportMode.TRAIN); // ← テキトウな TransportMode を渡す
+        super(company.id, company.name, company.color);
         this.company = company;
-        this.name = company.name;
-        this.color = company.color;
+    }
+
+    // 必要なら変更時に書き戻すメソッドを追加可能
+    public Company getCompany() {
+        return company;
     }
 
     @Override
