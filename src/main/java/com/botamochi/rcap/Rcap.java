@@ -8,6 +8,7 @@ import com.botamochi.rcap.network.HousingBlockPacketReceiver;
 import com.botamochi.rcap.network.OfficeBlockPacketReceiver;
 import com.botamochi.rcap.network.RcapServerPackets;
 import com.botamochi.rcap.screen.ModScreens;
+import com.botamochi.rcap.network.ServerNetworking;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
 import net.minecraft.block.Block;
@@ -47,6 +48,7 @@ public class Rcap implements ModInitializer {
 
         ModScreens.registerScreenHandlers();
         RcapServerPackets.register();
+        ServerNetworking.register();
 
         HousingBlockPacketReceiver.register();
         OfficeBlockPacketReceiver.register();

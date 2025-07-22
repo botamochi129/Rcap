@@ -3,5 +3,6 @@
   "block.rcap.office_block": "オフィスブロック",
   "gui.rcap.companies": "会社",
   "gui.rcap.add_company": "会社を追加",
-  "gui.rcap.search": "検索"
+  "gui.rcap.save": "保存",
+  "gui.rcap.delete": "削除"
 }
