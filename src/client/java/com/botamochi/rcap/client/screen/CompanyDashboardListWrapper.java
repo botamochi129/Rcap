@@ -40,6 +40,17 @@ public class CompanyDashboardListWrapper implements Drawable, Element, Selectabl
     }
 
     @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (inner.handleCompanyClick(mouseX, mouseY, button)) {
+            return true;
+        }
+
+        // 🧠 その他のクリック（＝項目自体のクリック）は DashboardList に渡す
+        return Element.super.mouseClicked(mouseX, mouseY, button);
+    }
+
+
+    @Override
     public SelectionType getType() {
         return SelectionType.NONE;
     }

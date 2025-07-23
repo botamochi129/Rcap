@@ -1,5 +1,6 @@
 package com.botamochi.rcap.client.mixin;
 
+import com.botamochi.rcap.client.api.DashboardScreenExtensions;
 import com.botamochi.rcap.client.screen.CompanyDashboardList;
 import com.botamochi.rcap.client.screen.CompanyDashboardListWrapper;
 import com.botamochi.rcap.client.screen.EditCompanyScreen;
@@ -19,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(DashboardScreen.class)
-public abstract class DashboardScreenMixin extends Screen {
+public abstract class DashboardScreenMixin extends Screen implements DashboardScreenExtensions {
 
     private static final int BUTTON_WIDTH = 144;
     @Shadow @Final private ButtonWidget buttonTabStations;
@@ -90,6 +91,8 @@ public abstract class DashboardScreenMixin extends Screen {
         companyDashboardListWrapper = new CompanyDashboardListWrapper(companyDashboardList, this.textRenderer);
         addDrawableChild(companyDashboardListWrapper);
         addSelectableChild(companyDashboardListWrapper);
+
+        companyDashboardList.resetData();
     }
 
     @Inject(method = "tick", at = @At("TAIL"))
@@ -134,6 +137,7 @@ public abstract class DashboardScreenMixin extends Screen {
         buttonAddCompany.visible = rcap_isCompanyTabSelected;
     }
 
+    @Override
     public CompanyDashboardList getCompanyDashboardList() {
         return companyDashboardList;
     }

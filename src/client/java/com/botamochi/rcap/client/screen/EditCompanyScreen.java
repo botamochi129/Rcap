@@ -11,6 +11,8 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.text.Text;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 public class EditCompanyScreen extends Screen {
 
@@ -21,6 +23,14 @@ public class EditCompanyScreen extends Screen {
     private TextFieldWidget nameField;
     private ButtonWidget colorButton;
 
+    private final List<Long> selectedRouteIds = new ArrayList<>();
+    private final List<Long> selectedDepotIds = new ArrayList<>();
+
+    private ButtonWidget routeButton;
+    private ButtonWidget depotButton;
+
+    private boolean initialized = false;
+
     public EditCompanyScreen(Screen parent, CompanyDashboardList dashboardList, Company company) {
         super(Text.literal("会社編集"));
         this.parent = parent;
@@ -30,6 +40,16 @@ public class EditCompanyScreen extends Screen {
 
     @Override
     protected void init() {
+        if (!initialized) {
+            selectedRouteIds.clear();
+            selectedRouteIds.addAll(company.ownedRoutes);
+
+            selectedDepotIds.clear();
+            selectedDepotIds.addAll(company.ownedDepots);
+
+            initialized = true; // ✅ もう初期化しないように
+        }
+
         final int centerX = width / 2;
         final int startY = height / 4;
 
@@ -44,27 +64,75 @@ public class EditCompanyScreen extends Screen {
         });
         addDrawableChild(colorButton);
 
-        addDrawableChild(new ButtonWidget(centerX - 100, startY + 60, 98, 20, Text.literal("保存"), button -> {
+        routeButton = new ButtonWidget(centerX - 100, startY + 60, 200, 20, getRouteLabel(), btn -> {
+            MinecraftClient.getInstance().setScreen(
+                    new RouteDepotSelectScreen(this, selectedRouteIds, true, selected -> {
+                        System.out.println("[RCAP] EditCompanyScreen: route 選択結果: " + selected);
+
+                        selectedRouteIds.clear();
+                        selectedRouteIds.addAll(selected);
+
+                        // ✅ 最新化された件数表示も確認
+                        System.out.println("[RCAP] 更新後 route ids: " + selectedRouteIds);
+                        routeButton.setMessage(getRouteLabel());
+                    })
+            );
+        });
+        addDrawableChild(routeButton);
+
+        depotButton = new ButtonWidget(centerX - 100, startY + 90, 200, 20, getDepotLabel(), btn -> {
+            MinecraftClient.getInstance().setScreen(
+                    new RouteDepotSelectScreen(this, selectedDepotIds, false, selected -> {
+                        System.out.println("[RCAP] EditCompanyScreen: depot 選択結果: " + selected);
+
+                        selectedDepotIds.clear();
+                        selectedDepotIds.addAll(selected);
+
+                        System.out.println("[RCAP] 更新後 depot ids: " + selectedDepotIds);
+                        depotButton.setMessage(getDepotLabel());
+                    })
+            );
+        });
+        addDrawableChild(depotButton);
+
+        addDrawableChild(new ButtonWidget(centerX - 100, startY + 120, 98, 20, Text.literal("保存"), button -> {
             company.name = nameField.getText().trim();
 
             if (!CompanyManager.COMPANY_LIST.contains(company)) {
                 CompanyManager.COMPANY_LIST.add(company);
             }
 
-            File saveFile = new File(FabricLoader.getInstance().getConfigDir().toFile(), "rcap/companies.dat");
-            CompanyManager.save(saveFile);
+            // 🔍 保存に使われるIDを確認
+            System.out.println("[RCAP] 保存前 route: " + selectedRouteIds);
+            System.out.println("[RCAP] 保存前 depot: " + selectedDepotIds);
+
+            company.ownedRoutes.clear();
+            company.ownedRoutes.addAll(selectedRouteIds);
+
+            company.ownedDepots.clear();
+            company.ownedDepots.addAll(selectedDepotIds);
+
+            CompanyManager.save();
 
             dashboardList.resetData();
             MinecraftClient.getInstance().setScreen(parent);
         }));
 
-        addDrawableChild(new ButtonWidget(centerX + 2, startY + 60, 98, 20, Text.literal("キャンセル"), button -> {
+        addDrawableChild(new ButtonWidget(centerX + 2, startY + 120, 98, 20, Text.literal("キャンセル"), button -> {
             MinecraftClient.getInstance().setScreen(parent);
         }));
     }
 
     private Text getColorLabel(int color) {
         return Text.literal(String.format("色: #%06X", color & 0xFFFFFF));
+    }
+
+    private Text getRouteLabel() {
+        return Text.literal("所有路線: " + selectedRouteIds.size() + "件");
+    }
+
+    private Text getDepotLabel() {
+        return Text.literal("所有車庫: " + selectedDepotIds.size() + "件");
     }
 
     private int nextColor(int current) {

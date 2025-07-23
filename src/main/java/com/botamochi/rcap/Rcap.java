@@ -39,16 +39,6 @@ public class Rcap implements ModInitializer {
 
     public static BlockEntityType<HousingBlockEntity> HOUSING_BLOCK_ENTITY;
 
-    public static NbtCompound loadCompanyNBT(File file) {
-        try {
-            return NbtIo.read(file); // Minecraft 1.19+
-        } catch (IOException e) {
-            e.printStackTrace();
-            return new NbtCompound(); // fallback
-        }
-    }
-
-
     @Override
     public void onInitialize() {
         Registry.register(Registry.BLOCK, new Identifier(MOD_ID, "housing_block"), HOUSING_BLOCK);

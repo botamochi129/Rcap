@@ -1,5 +1,7 @@
 package com.botamochi.rcap.client.screen;
 
+import com.botamochi.rcap.client.api.DashboardScreenExtensions;
+import com.botamochi.rcap.client.mixin.DashboardListAccessor;
 import com.botamochi.rcap.client.mixin.DashboardScreenMixin;
 import com.botamochi.rcap.data.Company;
 import com.botamochi.rcap.data.CompanyManager;
@@ -20,48 +22,38 @@ public class CompanyDashboardList extends DashboardList {
     private final Screen parentScreen;
     private boolean visible = false;
 
+    private final DashboardListAccessor accessor = (DashboardListAccessor) this;
+
     public CompanyDashboardList(Screen parentScreen) {
         super(
-                (data, index) -> {},
-
                 (data, index) -> {
-                    if (data instanceof Company company && parentScreen instanceof DashboardScreenMixin dashboardMixin) {
+                    if (data instanceof Company company && parentScreen instanceof DashboardScreenExtensions ext) {
                         MinecraftClient.getInstance().setScreen(
-                                new EditCompanyScreen(parentScreen, dashboardMixin.getCompanyDashboardList(), company)
+                                new EditCompanyScreen(parentScreen, ext.getCompanyDashboardList(), company)
                         );
                     }
                 },
 
                 (data, index) -> {
-                    if (data instanceof Company company && parentScreen instanceof DashboardScreenMixin dashboardMixin) {
+                    if (data instanceof Company company && parentScreen instanceof DashboardScreenExtensions ext) {
                         MinecraftClient.getInstance().setScreen(
-                                new EditCompanyScreen(parentScreen, dashboardMixin.getCompanyDashboardList(), company)
+                                new EditCompanyScreen(parentScreen, ext.getCompanyDashboardList(), company)
+                        );
+                    }
+                },
+
+                (data, index) -> {
+                    if (data instanceof Company company && parentScreen instanceof DashboardScreenExtensions ext) {
+                        MinecraftClient.getInstance().setScreen(
+                                new EditCompanyScreen(parentScreen, ext.getCompanyDashboardList(), company)
                         );
                     }
                 },
 
                 () -> {},   // onSort
                 null,       // onAdd
-
-                // ✅ ダミー Runnable で delay しないでリセットする → this 使用禁止状態ではこのくらいが限界
-                (data, index) -> {
-                    if (data instanceof Company company) {
-                        CompanyManager.COMPANY_LIST.removeIf(c -> c.id == company.id);
-                        MinecraftClient.getInstance().submit(() -> {
-                            // UI スレッドで遅延実行することで安全に this.use できるようになる
-                            MinecraftClient.getInstance().execute(() -> {
-                                MinecraftClient.getInstance().setScreen(MinecraftClient.getInstance().currentScreen); // force redraw
-                            });
-                        });
-                    }
-                },
-
-                // データ
-                () -> CompanyManager.COMPANY_LIST.stream()
-                        .map(c -> (NameColorDataBase) c)
-                        .collect(Collectors.toList()),
-
-                // 検索
+                null,       // onDelete は描画・クリックで処理
+                () -> CompanyManager.COMPANY_LIST.stream().map(c -> (NameColorDataBase) c).collect(Collectors.toList()),
                 () -> ClientData.DASHBOARD_SEARCH,
                 s -> ClientData.DASHBOARD_SEARCH = s
         );
@@ -84,6 +76,7 @@ public class CompanyDashboardList extends DashboardList {
         );
     }
 
+    /** 描画：リスト本体 + 削除ボタン **/
     public void renderCompanyList(MatrixStack matrices, TextRenderer font) {
         if (visible) {
             super.render(matrices, font);
@@ -92,25 +85,70 @@ public class CompanyDashboardList extends DashboardList {
     }
 
     private void renderExtras(MatrixStack matrices, TextRenderer font) {
-        int itemsToShow = (height - 24) / 20;
-        int count = 0;
+        int indexOffset = accessor.getPage() * accessor.callItemsToShow();
+        int itemsToDraw = (height - 24) / 20;
 
-        for (NameColorDataBase data : CompanyManager.COMPANY_LIST) {
-            if (!(data instanceof Company company)) continue;
-            if (count >= itemsToShow) break;
+        List<Company> viewList = CompanyManager.COMPANY_LIST.stream()
+                .skip(indexOffset)
+                .limit(itemsToDraw)
+                .collect(Collectors.toList());
 
-            int drawY = y + 6 + 24 + 20 * count;
+        for (int i = 0; i < viewList.size(); i++) {
+            Company company = viewList.get(i);
+            int drawY = y + 6 + 24 + 20 * i;
 
-            font.drawWithShadow(matrices, "路線数: " + company.ownedRoutes.size(), x + 8, drawY + 10, 0xAAAAAA);
+            font.drawWithShadow(matrices, "路線: " + company.ownedRoutes.size(), x + 8, drawY + 10, 0xAAAAAA);
+            font.drawWithShadow(matrices, "車庫: " + company.ownedDepots.size(), x + 50, drawY + 10, 0xAAAAAA); // ← 車庫も追加！
 
-            count++;
+            // ✎ 編集ボタン
+            int editX = x + width - 32;
+            DrawableHelper.fill(matrices, editX, drawY + 2, editX + 12, drawY + 14, 0xFF0080FF);
+            font.drawWithShadow(matrices, "✎", editX + 2, drawY + 4, 0xFFFFFF);
+
+            // ✕ 削除ボタン
+            int deleteX = x + width - 16;
+            DrawableHelper.fill(matrices, deleteX, drawY + 2, deleteX + 12, drawY + 14, 0xFFAA0000);
+            font.drawWithShadow(matrices, "✕", deleteX + 2, drawY + 4, 0xFFFFFF);
         }
     }
 
-    public void tickCompanyList() {
-        if (visible) {
-            super.tick();
+    public boolean handleCompanyClick(double mouseX, double mouseY, int button) {
+        if (!visible) return false;
+
+        int indexOffset = accessor.getPage() * accessor.callItemsToShow();
+        int itemsToShow = (height - 24) / 20;
+
+        List<Company> viewList = CompanyManager.COMPANY_LIST.stream()
+                .skip(indexOffset)
+                .limit(itemsToShow)
+                .collect(Collectors.toList());
+
+        for (int i = 0; i < viewList.size(); i++) {
+            Company company = viewList.get(i);
+            int drawY = y + 6 + 24 + 20 * i;
+            int buttonY = drawY + 2;
+
+            int editX = x + width - 32;
+            int deleteX = x + width - 16;
+
+            if (mouseX >= editX && mouseX <= editX + 12 &&
+                    mouseY >= buttonY && mouseY <= buttonY + 14) {
+                MinecraftClient.getInstance().setScreen(
+                        new EditCompanyScreen(parentScreen, this, company)
+                );
+                return true;
+            }
+
+            if (mouseX >= deleteX && mouseX <= deleteX + 12 &&
+                    mouseY >= buttonY && mouseY <= buttonY + 14) {
+                MinecraftClient.getInstance().setScreen(
+                        new ConfirmDeleteScreen(company, this, parentScreen)
+                );
+                return true;
+            }
         }
+
+        return false;
     }
 
     public void setVisible(boolean visible) {
