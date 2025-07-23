@@ -42,7 +42,7 @@ public class ServerNetworking {
             });
         });
 
-        ServerPlayNetworking.registerGlobalReceiver(new Identifier("rcap", "set_platform_id"),
+        ServerPlayNetworking.registerGlobalReceiver(new Identifier("rcap", "update_platform_id"),
                 (server, player, handler, buf, responseSender) -> {
                     BlockPos pos = buf.readBlockPos();
                     long platformId = buf.readLong();
