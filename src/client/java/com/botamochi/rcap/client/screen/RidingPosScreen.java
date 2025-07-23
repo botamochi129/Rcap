@@ -1,61 +1,177 @@
 package com.botamochi.rcap.client.screen;
 
-import com.botamochi.rcap.screen.RidingPosScreenHandler;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
+import com.botamochi.rcap.block.entity.RidingPosBlockEntity;
+import com.botamochi.rcap.client.network.ClientNetworking;
+import mtr.client.ClientData;
+import mtr.data.Platform;
+import mtr.data.RailwayData;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.Element;
+import net.minecraft.client.gui.Selectable;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.CheckboxWidget;
+import net.minecraft.client.gui.widget.EntryListWidget;
+import net.minecraft.network.PacketByteBuf;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
 
-public class RidingPosScreen extends HandledScreen<RidingPosScreenHandler> {
+import java.util.*;
 
-    private TextFieldWidget platformIdField;
+public class RidingPosScreen extends Screen {
 
-    public RidingPosScreen(RidingPosScreenHandler handler, PlayerInventory inventory, Text title) {
-        super(handler, inventory, title);
-        this.passEvents = false;
+    private static final int LIST_WIDTH = 300;
+    private static final int ITEM_HEIGHT = 20;
+
+    private final RidingPosBlockEntity blockEntity;
+    private final BlockPos blockPos;
+
+    private ScrollablePlatformList platformList;
+    private ButtonWidget saveButton;
+
+    private final Set<Long> selectedPlatformIds = new HashSet<>();
+    private List<Platform> nearbyPlatforms = new ArrayList<>();
+
+    public RidingPosScreen(RidingPosBlockEntity blockEntity) {
+        super(Text.literal("乗車位置設定"));
+        this.blockEntity = blockEntity;
+        this.blockPos = blockEntity.getPos();
     }
 
     @Override
     protected void init() {
-        super.init();
+        selectedPlatformIds.clear();
+        if (blockEntity.getPlatformId() != -1) {
+            selectedPlatformIds.add(blockEntity.getPlatformId());
+        }
 
-        int x = (width - 150) / 2;
-        int y = (height - 20) / 2;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        var world = mc.world;
+        if (world == null) return;
 
-        // プラットフォームIDの入力欄
-        platformIdField = new TextFieldWidget(textRenderer, x, y, 150, 20, Text.literal("Platform ID"));
-        platformIdField.setText(Long.toString(handler.getPlatformId()));
+        var station = RailwayData.getStation(ClientData.STATIONS, ClientData.DATA_CACHE, blockPos);
+        if (station == null) return;
 
-        addSelectableChild(platformIdField);
+        nearbyPlatforms = new ArrayList<>(ClientData.DATA_CACHE.requestStationIdToPlatforms(station.id).values());
+        nearbyPlatforms.sort(Comparator.comparing(p -> p.name));
 
-        // 保存ボタン
-        addDrawableChild(new ButtonWidget(x, y + 25, 150, 20, Text.literal("保存"), button -> {
-            try {
-                long newId = Long.parseLong(platformIdField.getText());
-                handler.setPlatformId(newId);
-                // サーバへパケット送る必要あり（下参照）
-                client.player.closeHandledScreen();
-            } catch (NumberFormatException e) {
-                // 入力が数字でない場合のエラーハンドリング
+        int listX = (width - LIST_WIDTH) / 2;
+        int listY = 40;
+        int listHeight = height - 100;
+
+        platformList = new ScrollablePlatformList(mc, LIST_WIDTH, listHeight, listY, listY + listHeight, ITEM_HEIGHT);
+        platformList.setRenderBackground(false);
+        platformList.setLeftPos(listX);
+
+        for (Platform platform : nearbyPlatforms) {
+            boolean checked = selectedPlatformIds.contains(platform.id);
+            platformList.addPublicEntry(new PlatformEntry(platform.name + "（ID: " + platform.id + "）", platform.id, checked));
+        }
+
+        addSelectableChild(platformList);
+
+        int bx = (this.width - 100) / 2;
+        int by = this.height - 40;
+        saveButton = new ButtonWidget(bx, by, 100, 20, Text.literal("保存"), b -> closeWithSave());
+        addDrawableChild(saveButton);
+    }
+
+    private void closeWithSave() {
+        long selectedId = -1L;
+        for (PlatformEntry entry : platformList.children()) {
+            if (entry.checkbox.isChecked()) {
+                selectedId = entry.platformId;
+                break;
             }
-        }));
+        }
+
+        // ここを直接 ClientNetworking の送信メソッドにする
+        ClientNetworking.sendUpdatePlatformIdPacket(blockPos, selectedId);
+
+        MinecraftClient.getInstance().setScreen(null);
+    }
+
+    @Override
+    public void close() {
+        closeWithSave();
+        super.close();
     }
 
     @Override
     public void render(MatrixStack matrices, int mouseX, int mouseY, float delta) {
         renderBackground(matrices);
+        drawCenteredText(matrices, textRenderer, title.getString(), width / 2, 15, 0xFFFFFF);
+
+        // これを追加👇：スクロールリストの描画
+        platformList.render(matrices, mouseX, mouseY, delta);
+
         super.render(matrices, mouseX, mouseY, delta);
-        platformIdField.render(matrices, mouseX, mouseY, delta);
     }
 
     @Override
-    protected void drawBackground(MatrixStack matrices, float delta, int mouseX, int mouseY) {
+    public boolean shouldPause() {
+        return false;
     }
 
-    @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        return platformIdField.keyPressed(keyCode, scanCode, modifiers) || super.keyPressed(keyCode, scanCode, modifiers);
+    // ---------- スクロール対応リスト ----------
+    private static class ScrollablePlatformList extends EntryListWidget<PlatformEntry> {
+        public ScrollablePlatformList(MinecraftClient client, int width, int height, int top, int bottom, int itemHeight) {
+            super(client, width, height, top, bottom, itemHeight);
+        }
+
+        public void addPublicEntry(PlatformEntry entry) {
+            super.addEntry(entry); // protected → 公開
+        }
+
+        @Override
+        protected int getScrollbarPositionX() {
+            return getRowLeft() + LIST_WIDTH - 8;
+        }
+
+        @Override
+        public int getRowWidth() {
+            return LIST_WIDTH;
+        }
+
+        @Override
+        public void appendNarrations(NarrationMessageBuilder builder) {
+        }
+    }
+
+    private static class PlatformEntry extends EntryListWidget.Entry<PlatformEntry> {
+        public final long platformId;
+        public final CheckboxWidget checkbox;
+
+        public PlatformEntry(String label, long platformId, boolean selected) {
+            this.platformId = platformId;
+            this.checkbox = new CheckboxWidget(0, 0, LIST_WIDTH - 10, ITEM_HEIGHT, Text.literal(label), selected);
+        }
+
+        @Override
+        public void render(MatrixStack matrices, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean hovered, float delta) {
+            checkbox.x = x + 5;
+            checkbox.y = y;
+            checkbox.render(matrices, mouseX, mouseY, delta);
+        }
+
+        // ✅ Mouse Click 伝搬を追加（これが超重要）
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            return checkbox.mouseClicked(mouseX, mouseY, button);
+        }
+
+        // ✅ Yarn 1.19.2 では @Override なしでOK
+        public List<? extends Element> children() {
+            return List.of(checkbox);
+        }
+
+        public List<? extends Selectable> selectableChildren() {
+            return List.of(checkbox);
+        }
     }
 }

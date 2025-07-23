@@ -1,10 +1,12 @@
 package com.botamochi.rcap.block;
 
 import com.botamochi.rcap.block.entity.RidingPosBlockEntity;
+import com.botamochi.rcap.network.RcapServerPackets;
 import net.minecraft.block.BlockWithEntity;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
@@ -25,10 +27,10 @@ public class RidingPosBlock extends BlockWithEntity {
 
     @Override
     public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
-        if (!world.isClient) {
-            BlockEntity blockEntity = world.getBlockEntity(pos);
-            if (blockEntity instanceof RidingPosBlockEntity entity) {
-                player.openHandledScreen(entity);
+        if (!world.isClient && player instanceof ServerPlayerEntity serverPlayer) {
+            BlockEntity be = world.getBlockEntity(pos);
+            if (be instanceof RidingPosBlockEntity) {
+                RcapServerPackets.sendOpenGui(serverPlayer, pos); // <- ここでパケット送信！
             }
         }
         return ActionResult.SUCCESS;

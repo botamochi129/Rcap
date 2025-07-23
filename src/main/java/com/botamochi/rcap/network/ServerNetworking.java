@@ -1,5 +1,6 @@
 package com.botamochi.rcap.network;
 
+import com.botamochi.rcap.block.entity.HousingBlockEntity;
 import com.botamochi.rcap.block.entity.RidingPosBlockEntity;
 import com.botamochi.rcap.data.Company;
 import com.botamochi.rcap.data.CompanyManager;
@@ -40,5 +41,18 @@ public class ServerNetworking {
                 }
             });
         });
+
+        ServerPlayNetworking.registerGlobalReceiver(new Identifier("rcap", "set_platform_id"),
+                (server, player, handler, buf, responseSender) -> {
+                    BlockPos pos = buf.readBlockPos();
+                    long platformId = buf.readLong();
+
+                    server.execute(() -> {
+                        if (player.getWorld().getBlockEntity(pos) instanceof RidingPosBlockEntity entity) {
+                            entity.setPlatformId(platformId);
+                        }
+                    });
+                }
+        );
     }
 }

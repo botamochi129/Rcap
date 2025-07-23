@@ -1,11 +1,9 @@
 package com.botamochi.rcap.block.entity;
 
 import com.botamochi.rcap.Rcap;
-import com.botamochi.rcap.screen.RidingPosScreenHandler;
 import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 import net.minecraft.block.Block;
 import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.nbt.NbtCompound;
@@ -17,7 +15,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.block.BlockState;
 import org.jetbrains.annotations.Nullable;
 
-public class RidingPosBlockEntity extends BlockEntity implements ExtendedScreenHandlerFactory {
+public class RidingPosBlockEntity extends BlockEntity {
     private long platformId = -1L;
 
     public RidingPosBlockEntity(BlockPos pos, BlockState state) {
@@ -36,7 +34,6 @@ public class RidingPosBlockEntity extends BlockEntity implements ExtendedScreenH
         }
     }
 
-    // NBT保存
     @Override
     protected void writeNbt(NbtCompound nbt) {
         super.writeNbt(nbt);
@@ -49,23 +46,5 @@ public class RidingPosBlockEntity extends BlockEntity implements ExtendedScreenH
         if (nbt.contains("PlatformId")) {
             this.platformId = nbt.getLong("PlatformId");
         }
-    }
-
-    // GUIを開くための実装（下で使います）
-    @Override
-    public Text getDisplayName() {
-        return Text.literal("乗車位置設定");
-    }
-
-    @Nullable
-    @Override
-    public ScreenHandler createMenu(int syncId, PlayerInventory playerInventory, PlayerEntity player) {
-        return new RidingPosScreenHandler(syncId, playerInventory, this);
-    }
-
-    @Override
-    public void writeScreenOpeningData(ServerPlayerEntity player, PacketByteBuf buf) {
-        buf.writeBlockPos(getPos());
-        buf.writeLong(platformId);
     }
 }

@@ -1,11 +1,13 @@
 package com.botamochi.rcap.network;
 
 import com.botamochi.rcap.data.Company;
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,6 +15,7 @@ import java.util.List;
 public class RcapServerPackets {
 
     public static final Identifier UPDATE_COMPANY = new Identifier("rcap", "update_company");
+    public static final Identifier OPEN_RIDING_POS_GUI = new Identifier("rcap", "open_riding_pos_gui");
 
     public static void register() {
         ServerPlayNetworking.registerGlobalReceiver(UPDATE_COMPANY, (server, player, handler, buf, sender) -> {
@@ -30,4 +33,9 @@ public class RcapServerPackets {
         });
     }
 
+    public static void sendOpenGui(ServerPlayerEntity player, BlockPos pos) {
+        PacketByteBuf buf = PacketByteBufs.create();
+        buf.writeBlockPos(pos);
+        ServerPlayNetworking.send(player, OPEN_RIDING_POS_GUI, buf);
+    }
 }
