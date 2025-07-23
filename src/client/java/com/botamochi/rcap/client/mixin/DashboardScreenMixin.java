@@ -1,8 +1,6 @@
 package com.botamochi.rcap.client.mixin;
 
 import com.botamochi.rcap.client.screen.CompanyDashboardList;
-import mtr.screen.DashboardList;
-import mtr.screen.DashboardListSelectorScreen;
 import mtr.screen.DashboardScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -23,10 +21,6 @@ public abstract class DashboardScreenMixin extends Screen {
     @Shadow @Final protected ButtonWidget buttonTabStations;
     @Shadow @Final protected ButtonWidget buttonTabRoutes;
     @Shadow @Final protected ButtonWidget buttonTabDepots;
-
-    // 本家のリストWidget（通常: dashboardList, dashboardListSelectorScreen など）
-    @Shadow protected DashboardList dashboardList;
-    @Shadow protected DashboardListSelectorScreen dashboardListSelectorScreen;
 
     @Unique private ButtonWidget buttonTabCompany;
     @Unique private CompanyDashboardList companyDashboardList;
@@ -65,11 +59,7 @@ public abstract class DashboardScreenMixin extends Screen {
         buttonTabDepots.active = true;
         buttonTabCompany.active = false;
 
-        // 他タブのリストをremove
-        if (dashboardList != null) this.remove(dashboardList);
-        if (dashboardListSelectorScreen != null) this.remove(dashboardListSelectorScreen);
-
-        // 会社リストだけadd
+        // 会社リストWidgetをadd（childrenに既にあればスキップ）
         if (!this.children().contains(companyDashboardList)) {
             this.addDrawableChild(companyDashboardList);
         }
@@ -80,8 +70,8 @@ public abstract class DashboardScreenMixin extends Screen {
         if (isCompanyTab) {
             isCompanyTab = false;
             if (buttonTabCompany != null) buttonTabCompany.active = true;
-            // 会社リストWidgetをremove
-            this.remove(companyDashboardList);
+            // childrenからremove
+            this.children().remove(companyDashboardList);
         }
     }
 }
