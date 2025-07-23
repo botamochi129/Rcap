@@ -7,6 +7,7 @@ import com.botamochi.rcap.block.entity.HousingBlockEntity;
 import com.botamochi.rcap.block.entity.OfficeBlockEntity;
 import com.botamochi.rcap.block.entity.RidingPosBlockEntity;
 import com.botamochi.rcap.data.CompanyManager;
+import com.botamochi.rcap.data.HousingManager;
 import com.botamochi.rcap.network.HousingBlockPacketReceiver;
 import com.botamochi.rcap.network.OfficeBlockPacketReceiver;
 import com.botamochi.rcap.network.RcapServerPackets;
@@ -16,6 +17,7 @@ import com.botamochi.rcap.network.ServerNetworking;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 import net.fabricmc.loader.api.FabricLoader;
@@ -53,7 +55,7 @@ public class Rcap implements ModInitializer {
         HOUSING_BLOCK_ENTITY = Registry.register(
                 Registry.BLOCK_ENTITY_TYPE,
                 new Identifier(MOD_ID, "housing_block_entity"),
-                BlockEntityType.Builder.create(HousingBlockEntity::new, HOUSING_BLOCK).build(null)
+                FabricBlockEntityTypeBuilder.create(HousingBlockEntity::new, HOUSING_BLOCK).build(null)
         );
 
         Registry.register(Registry.BLOCK, new Identifier(MOD_ID, "office_block"), OFFICE_BLOCK);
@@ -80,6 +82,13 @@ public class Rcap implements ModInitializer {
             if (world != null) {
                 CompanyManager.init(world);
             }
+        });
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+            CompanyManager.save(); // ← 忘れずに追加！
+        });
+
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            HousingManager.clear();
         });
 
         HousingBlockPacketReceiver.register();

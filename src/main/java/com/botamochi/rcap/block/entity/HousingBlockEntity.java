@@ -1,6 +1,7 @@
 package com.botamochi.rcap.block.entity;
 
 import com.botamochi.rcap.Rcap;
+import com.botamochi.rcap.data.HousingManager;
 import com.botamochi.rcap.data.OfficeManager;
 import com.botamochi.rcap.passenger.Passenger;
 import com.botamochi.rcap.passenger.PassengerManager;
@@ -9,6 +10,7 @@ import com.botamochi.rcap.screen.ModScreens;
 import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.entity.BlockEntityTicker;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.nbt.NbtCompound;
@@ -20,6 +22,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -108,5 +111,17 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
     public void writeScreenOpeningData(ServerPlayerEntity player, PacketByteBuf buf) {
         buf.writeBlockPos(this.getPos());
         buf.writeInt(this.householdSize); // ← これを追加
+    }
+
+    public static void tick(World world, BlockPos pos, BlockState state, HousingBlockEntity blockEntity) {
+        HousingManager.registerHousing(pos); // 一度だけ登録してもOK（条件付き）
+    }
+
+    @Override
+    public void markRemoved() {
+        super.markRemoved();
+        if (!world.isClient) {
+            HousingManager.unregisterHousing(pos);
+        }
     }
 }

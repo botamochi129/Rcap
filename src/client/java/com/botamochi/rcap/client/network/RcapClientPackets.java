@@ -24,15 +24,13 @@ public class RcapClientPackets {
             client.execute(() -> {
                 var world = MinecraftClient.getInstance().world;
                 if (world == null) return;
+
                 var be = world.getBlockEntity(pos);
                 if (be instanceof RidingPosBlockEntity ridingPos) {
-                    ridingPos.setPlatformId(platformId);  // BlockEntity の状態を更新
-                }
+                    ridingPos.setPlatformId(platformId);
 
-                // GUIに反映
-                var screen = MinecraftClient.getInstance().currentScreen;
-                if (screen instanceof RidingPosScreen ridingScreen && ridingScreen.getBlockPos().equals(pos)) {
-                    ridingScreen.updateSelectedPlatform(platformId);
+                    // ✅ GUIを開く
+                    client.setScreen(new RidingPosScreen(ridingPos));
                 }
             });
         });

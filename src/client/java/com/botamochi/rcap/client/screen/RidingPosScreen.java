@@ -193,13 +193,16 @@ public class RidingPosScreen extends Screen {
             super(x, y, width, height, message, checked);
         }
 
-        // ✅ 自作チェック切り替えメソッド
         public void setChecked(boolean value) {
-            setChecked(value);
+            // Yarn mappingでは setChecked などが存在しないため「トグル処理」を真似る
+            if (value != isChecked()) {
+                // 状態を逆転させる＝ボタンを押された時と同じ処理
+                this.onPress(); // これで内部 checked 状態が切り替わる
+            }
         }
 
         public boolean isChecked() {
-            return this.isChecked();
+            return super.isChecked();
         }
     }
 }

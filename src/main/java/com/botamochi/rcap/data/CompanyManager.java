@@ -5,14 +5,15 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.world.PersistentStateManager;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class CompanyManager {
-
-    public static List<Company> COMPANY_LIST;
+    public static List<Company> COMPANY_LIST = new ArrayList<>();
 
     private static CompanyState companyState;
 
+    // 初期化（SERVER_STARTED 時）
     public static void init(ServerWorld world) {
         PersistentStateManager manager = world.getPersistentStateManager();
 
@@ -22,12 +23,18 @@ public class CompanyManager {
                 CompanyState.KEY
         );
 
-        COMPANY_LIST = companyState.companyList;
+        COMPANY_LIST = companyState.companyList; // 共有参照
+    }
+
+    // 会社を追加する時は必ず markDirty()
+    public static void addCompany(Company company) {
+        COMPANY_LIST.add(company);
+        if (companyState != null) companyState.markDirty();
     }
 
     public static void save() {
         if (companyState != null) {
-            companyState.markDirty(); // 保存を通知する
+            companyState.markDirty(); // 保存フラグのみ設定
         }
     }
 
