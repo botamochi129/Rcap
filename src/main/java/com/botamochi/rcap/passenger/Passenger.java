@@ -9,43 +9,42 @@ import java.util.UUID;
 
 public class Passenger {
 
-    /** この乗客固有の UUID（保存・識別） */
-    public final UUID uuid;
+    public final UUID uuid;         // 固有ID
 
-    /** ブロック位置（BlockPos.toLong() で変換されたもの） */
-    private long homePos;
-    private long officePos;
-    private long currentPos;
+    private long homePos;           // 自宅ブロックの位置（BlockPos.toLong()）
+    private long officePos;         // 職場ブロックの位置
+    private long currentPos;        // 現在の移動中の位置
 
-    /** 現在の状態（在宅・出勤中・在職・帰宅中） */
-    private State state;
-
-    /** 次のアクションを起こす epoch ミリ秒 */
-    private long nextActionTime;
-
-    //=============================
-    // コンストラクタ
-    //=============================
+    public State state;            // 現時点の状態
+    public long nextActionTime;    // 次回行動時間（ミリ秒epoch）
 
     public Passenger(UUID uuid, long homePos, long officePos) {
         this.uuid = uuid;
         this.homePos = homePos;
         this.officePos = officePos;
-        this.currentPos = homePos; // 初期状態では自宅が現在地
+        this.currentPos = homePos;
         this.state = State.AT_HOME;
-        this.nextActionTime = System.currentTimeMillis() + 60_000; // 仮：1分後に出発
+        this.nextActionTime = System.currentTimeMillis() + 60_000; // 初期は1分後に行動開始予定
     }
 
-    //=============================
-    // 状態定義
-    //=============================
-
-    /** 乗客の状態をあらわす列挙（今の段階で4種類） */
     public enum State {
         AT_HOME,
-        TO_OFFICE,
+        TO_OFFICE_WALKING,
+        TO_OFFICE_STATION,
+        TO_OFFICE_ON_TRAIN,
         AT_OFFICE,
-        TO_HOME
+        TO_HOME_WALKING,
+        TO_HOME_STATION,
+        TO_HOME_ON_TRAIN,
+        AT_HOME_RETURNED
+    }
+
+    public void setCurrentPos(BlockPos pos) {
+        this.currentPos = pos.asLong();
+    }
+
+    public BlockPos getCurrentBlockPos() {
+        return BlockPos.fromLong(currentPos);
     }
 
     //=============================
@@ -105,10 +104,6 @@ public class Passenger {
         return BlockPos.fromLong(currentPos);
     }
 
-    public void setCurrentPos(BlockPos pos) {
-        this.currentPos = pos.asLong();
-    }
-
     public State getState() {
         return state;
     }
@@ -131,10 +126,6 @@ public class Passenger {
 
     public boolean isAtOffice() {
         return state == State.AT_OFFICE;
-    }
-
-    public boolean isMoving() {
-        return state == State.TO_OFFICE || state == State.TO_HOME;
     }
 
     @Override

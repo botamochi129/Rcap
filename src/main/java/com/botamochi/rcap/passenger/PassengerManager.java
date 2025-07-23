@@ -1,49 +1,75 @@
 package com.botamochi.rcap.passenger;
 
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtList;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 
 public class PassengerManager {
 
     private static final List<Passenger> PASSENGERS = new ArrayList<>();
 
-    // 保存ファイルパスや形式は環境に合わせて調整してください
-    private static final File SAVE_FILE = new File("rcap_data/passengers.dat");
-
-    /** サーバー側tickで呼び出す */
+    /** 毎Tickまたは定期的に呼び出し、乗客の行動を更新 */
     public static void tick(MinecraftServer server) {
         long now = System.currentTimeMillis();
 
-        for (Passenger p : new ArrayList<>(PASSENGERS)) {
-            if (now >= p.getNextActionTime()) {
-                switch (p.getState()) {
-                    case AT_HOME -> {
-                        // 自宅から出勤開始
-                        p.setState(Passenger.State.TO_OFFICE);
-                        // 任意で現在位置変更など
-                        p.setNextActionTime(now + 20_000); // 20秒後着くなど
-                    }
-                    case TO_OFFICE -> {
-                        p.setState(Passenger.State.AT_OFFICE);
-                        p.setCurrentPos(p.getOfficePos());
-                        p.setNextActionTime(now + 60_000); // 職場に1分いるなど
-                    }
-                    case AT_OFFICE -> {
-                        // 夕方帰宅
-                        p.setState(Passenger.State.TO_HOME);
-                        p.setNextActionTime(now + 20_000);
-                    }
-                    case TO_HOME -> {
-                        p.setState(Passenger.State.AT_HOME);
-                        p.setCurrentPos(p.getHomePos());
-                        p.setNextActionTime(now + 300_000); // 次の日まで自宅など
-                    }
-                }
+        Iterator<Passenger> it = PASSENGERS.iterator();
+        while (it.hasNext()) {
+            Passenger p = it.next();
+
+            if (now < p.nextActionTime) continue;
+
+            // 状態による処理例
+            switch (p.state) {
+                case AT_HOME:
+                    // 出勤準備・オフィス決定・ルート検索など
+                    p.state = Passenger.State.TO_OFFICE_WALKING;
+                    p.nextActionTime = now + 10_000; // 仮：徒歩移動時間
+                    break;
+
+                case TO_OFFICE_WALKING:
+                    // 駅に到着した想定で次状態へ
+                    p.state = Passenger.State.TO_OFFICE_STATION;
+                    p.nextActionTime = now + 5_000;
+                    break;
+
+                case TO_OFFICE_STATION:
+                    // 電車へ乗車準備
+                    p.state = Passenger.State.TO_OFFICE_ON_TRAIN;
+                    p.nextActionTime = now + 60_000; // 電車移動時間など
+                    break;
+
+                case TO_OFFICE_ON_TRAIN:
+                    p.state = Passenger.State.AT_OFFICE;
+                    p.nextActionTime = now + 1800_000; // 職場滞在時間（30分など）
+                    break;
+
+                case AT_OFFICE:
+                    // 夕方帰宅処理へ
+                    p.state = Passenger.State.TO_HOME_WALKING;
+                    p.nextActionTime = now + 10_000;
+                    break;
+
+                case TO_HOME_WALKING:
+                    p.state = Passenger.State.TO_HOME_STATION;
+                    p.nextActionTime = now + 5_000;
+                    break;
+
+                case TO_HOME_STATION:
+                    p.state = Passenger.State.TO_HOME_ON_TRAIN;
+                    p.nextActionTime = now + 60_000;
+                    break;
+
+                case TO_HOME_ON_TRAIN:
+                    p.state = Passenger.State.AT_HOME_RETURNED;
+                    p.nextActionTime = now + 0;
+                    break;
+
+                case AT_HOME_RETURNED:
+                    // 家に到着。リストから消す、描画消す等
+                    it.remove();
+                    break;
             }
         }
     }
@@ -52,22 +78,11 @@ public class PassengerManager {
         PASSENGERS.add(p);
     }
 
-    public static void removePassenger(UUID uuid) {
-        PASSENGERS.removeIf(p -> p.uuid.equals(uuid));
-    }
-
     public static List<Passenger> getPassengers() {
-        return Collections.unmodifiableList(PASSENGERS);
+        return List.copyOf(PASSENGERS);
     }
 
-    // 保存
-    public static void save() {
-        // NBTやJSON形式など環境にあわせて実装してください
-        // 省略
-    }
-
-    // 読み込み
-    public static void load() {
-        // 省略
-    }
+    // 保存・読み込みCPU負荷や待機時間が多いので別スレッド推奨（中略）
+    public static void save() { }
+    public static void load() { }
 }
