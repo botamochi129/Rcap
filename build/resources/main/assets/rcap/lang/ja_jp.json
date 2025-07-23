@@ -1,8 +1,7 @@
 {
   "block.rcap.housing_block": "住宅ブロック",
   "block.rcap.office_block": "オフィスブロック",
-  "gui.rcap.companies": "会社",
-  "gui.rcap.add_company": "会社を追加",
-  "gui.rcap.save": "保存",
-  "gui.rcap.delete": "削除"
+  "rcap.dashboard.company": "会社",
+  "rcap.button.add_company": "会社を追加",
+  "rcap.edit_company.title": "会社編集"
 }
