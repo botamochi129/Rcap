@@ -25,11 +25,6 @@ public class ServerNetworking {
             });
         });
 
-        ServerPlayNetworking.registerGlobalReceiver(DELETE_COMPANY, (server, player, handler, buf, responseSender) -> {
-            long id = buf.readLong();
-            server.execute(() -> CompanyManager.removeById(id));
-        });
-
         ServerPlayNetworking.registerGlobalReceiver(CREATE_COMPANY, (server, player, handler, buf, responseSender) -> {
             long id = buf.readLong();
             String name = buf.readString();

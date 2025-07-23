@@ -1,12 +1,13 @@
 package com.botamochi.rcap.data;
 
 import mtr.data.NameColorDataBase;
-import java.util.ArrayList;
-import java.util.List;
+
+import java.util.HashSet;
+import java.util.Set;
 
 public class Company extends NameColorDataBase {
-    public List<Long> ownedRoutes = new ArrayList<>();
-    public List<Long> ownedDepots = new ArrayList<>();
+    public final Set<Long> ownedRoutes = new HashSet<>();
+    public final Set<Long> ownedDepots = new HashSet<>();
 
     public Company(long id, String name, int color) {
         super(id);
