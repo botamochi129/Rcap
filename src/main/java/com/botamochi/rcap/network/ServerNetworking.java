@@ -1,10 +1,15 @@
 package com.botamochi.rcap.network;
 
+import com.botamochi.rcap.block.entity.RidingPosBlockEntity;
 import com.botamochi.rcap.data.Company;
 import com.botamochi.rcap.data.CompanyManager;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.network.PacketByteBuf;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
 
 public class ServerNetworking {
     public static final Identifier UPDATE_COMPANY = new Identifier("rcap", "update_company");

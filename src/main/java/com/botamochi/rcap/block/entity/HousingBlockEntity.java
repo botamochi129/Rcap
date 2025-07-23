@@ -1,6 +1,8 @@
 package com.botamochi.rcap.block.entity;
 
 import com.botamochi.rcap.Rcap;
+import com.botamochi.rcap.passenger.Passenger;
+import com.botamochi.rcap.passenger.PassengerManager;
 import com.botamochi.rcap.screen.HousingBlockScreenHandler;
 import com.botamochi.rcap.screen.ModScreens;
 import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
@@ -17,8 +19,11 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.UUID;
+
 public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHandlerFactory {
     private int householdSize = 1;
+    private int spawnedToday = 0;
 
     public HousingBlockEntity(BlockPos pos, BlockState state) {
         super(Rcap.HOUSING_BLOCK_ENTITY, pos, state);
@@ -32,6 +37,28 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
         this.householdSize = size;
         System.out.println("【保存】householdSize = " + size);
         markDirty();
+    }
+
+    private int lastSpawnDay = -1; // 現実「日」（0〜365）
+
+    public void spawnPassengersIfTime(long now) {
+        // 現在日を取得
+        int currentDay = java.time.LocalDate.now().getDayOfYear();
+
+        if (lastSpawnDay != currentDay) {
+            spawnedToday = 0;
+            lastSpawnDay = currentDay;
+        }
+
+        if (spawnedToday >= householdSize) return;
+
+        OfficeBlockEntity office = OfficeManager.getRandomAvailableOffice();
+        if (office == null) return;
+
+        Passenger p = new Passenger(UUID.randomUUID(), getPos().asLong(), office.getPos().asLong());
+        PassengerManager.addPassenger(p);
+        office.assignPassenger(p.uuid); // 忘れずにオフィスへ割り当て
+        spawnedToday++;
     }
 
     @Override

@@ -5,31 +5,15 @@ import io.netty.buffer.Unpooled;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
 
 public class ClientNetworking {
-    public static final Identifier UPDATE_COMPANY = new Identifier("rcap", "update_company");
-    public static final Identifier DELETE_COMPANY = new Identifier("rcap", "delete_company");
-    public static final Identifier CREATE_COMPANY = new Identifier("rcap", "create_company");
+    public static final Identifier UPDATE_PLATFORM_ID = new Identifier("rcap", "update_platform_id");
 
-    public static void sendUpdateCompany(Company company) {
+    public static void sendUpdatePlatformIdPacket(BlockPos pos, long platformId) {
         PacketByteBuf buf = new PacketByteBuf(Unpooled.buffer());
-        buf.writeLong(company.id);
-        buf.writeString(company.name);
-        buf.writeInt(company.color);
-        ClientPlayNetworking.send(UPDATE_COMPANY, buf);
-    }
-
-    public static void sendDeleteCompany(long id) {
-        PacketByteBuf buf = new PacketByteBuf(Unpooled.buffer());
-        buf.writeLong(id);
-        ClientPlayNetworking.send(DELETE_COMPANY, buf);
-    }
-
-    public static void sendCreateCompany(Company company) {
-        PacketByteBuf buf = new PacketByteBuf(Unpooled.buffer());
-        buf.writeLong(company.id);
-        buf.writeString(company.name);
-        buf.writeInt(company.color);
-        ClientPlayNetworking.send(CREATE_COMPANY, buf);
+        buf.writeBlockPos(pos);
+        buf.writeLong(platformId);
+        ClientPlayNetworking.send(UPDATE_PLATFORM_ID, buf);
     }
 }

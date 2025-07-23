@@ -2,17 +2,22 @@ package com.botamochi.rcap;
 
 import com.botamochi.rcap.block.HousingBlock;
 import com.botamochi.rcap.block.OfficeBlock;
+import com.botamochi.rcap.block.RidingPosBlock;
 import com.botamochi.rcap.block.entity.HousingBlockEntity;
 import com.botamochi.rcap.block.entity.OfficeBlockEntity;
+import com.botamochi.rcap.block.entity.RidingPosBlockEntity;
 import com.botamochi.rcap.data.CompanyManager;
 import com.botamochi.rcap.network.HousingBlockPacketReceiver;
 import com.botamochi.rcap.network.OfficeBlockPacketReceiver;
 import com.botamochi.rcap.network.RcapServerPackets;
+import com.botamochi.rcap.passenger.PassengerManager;
 import com.botamochi.rcap.screen.ModScreens;
 import com.botamochi.rcap.network.ServerNetworking;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
+import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.block.Block;
 import net.minecraft.block.Material;
@@ -36,8 +41,9 @@ public class Rcap implements ModInitializer {
     public static final Block HOUSING_BLOCK = new HousingBlock(FabricBlockSettings.of(Material.STONE).strength(2.0f));
     public static final Block OFFICE_BLOCK = new OfficeBlock(FabricBlockSettings.of(Material.STONE).strength(2.0f));
     public static BlockEntityType<OfficeBlockEntity> OFFICE_BLOCK_ENTITY;
-
     public static BlockEntityType<HousingBlockEntity> HOUSING_BLOCK_ENTITY;
+    public static final Block RIDING_POS_BLOCK = new RidingPosBlock(FabricBlockSettings.of(Material.METAL).strength(2.0f));
+    public static BlockEntityType<RidingPosBlockEntity> RIDING_POS_BLOCK_ENTITY;
 
     @Override
     public void onInitialize() {
@@ -57,6 +63,14 @@ public class Rcap implements ModInitializer {
                 BlockEntityType.Builder.create(OfficeBlockEntity::new, OFFICE_BLOCK).build(null)
         );
 
+        Registry.register(Registry.BLOCK, new Identifier(MOD_ID, "riding_pos_block"), RIDING_POS_BLOCK);
+        Registry.register(Registry.ITEM, new Identifier(MOD_ID, "riding_pos_block"), new BlockItem(RIDING_POS_BLOCK, new Item.Settings().group(ItemGroup.BUILDING_BLOCKS)));
+        RIDING_POS_BLOCK_ENTITY = Registry.register(
+                Registry.BLOCK_ENTITY_TYPE,
+                new Identifier(MOD_ID, "riding_pos_block_entity"),
+                FabricBlockEntityTypeBuilder.create(RidingPosBlockEntity::new, RIDING_POS_BLOCK).build(null)
+        );
+
         ModScreens.registerScreenHandlers();
         RcapServerPackets.register();
         ServerNetworking.register();
@@ -70,5 +84,7 @@ public class Rcap implements ModInitializer {
 
         HousingBlockPacketReceiver.register();
         OfficeBlockPacketReceiver.register();
+
+        ServerTickEvents.START_SERVER_TICK.register(PassengerManager::tick);
     }
 }
