@@ -26,7 +26,7 @@ public abstract class DashboardScreenMixin extends Screen {
     @Shadow @Final private ButtonWidget buttonTabRoutes;
     @Shadow @Final private ButtonWidget buttonTabDepots;
 
-    @Shadow @Final private DashboardList dashboardList;
+    @SuppressWarnings("invalid") @Shadow @Final private DashboardList dashboardList;
 
     @Unique private ButtonWidget buttonAddCompany;
 
@@ -81,10 +81,10 @@ public abstract class DashboardScreenMixin extends Screen {
         buttonAddCompany.visible = false; // 初期は非表示
         addDrawableChild(buttonAddCompany);
 
-        companyDashboardList = new CompanyDashboardList();
+        companyDashboardList = new CompanyDashboardList(this);
         companyDashboardList.setVisible(false);
-
         companyDashboardList.height = height - 40;
+
 
         // 👉 ラッパーを add ～ 系に渡す（これが Drawable & Element & Selectable ）
         companyDashboardListWrapper = new CompanyDashboardListWrapper(companyDashboardList, this.textRenderer);
@@ -126,6 +126,7 @@ public abstract class DashboardScreenMixin extends Screen {
         if (companyDashboardList != null) {
             companyDashboardList.setVisible(true);
             companyDashboardList.tick();
+            companyDashboardList.renderCompanyList(matrices, textRenderer);
         }
 
         companyDashboardList.renderCompanyList(matrices, this.textRenderer);
