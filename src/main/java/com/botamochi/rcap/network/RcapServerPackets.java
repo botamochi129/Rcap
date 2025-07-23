@@ -33,9 +33,10 @@ public class RcapServerPackets {
         });
     }
 
-    public static void sendOpenGui(ServerPlayerEntity player, BlockPos pos) {
+    public static void sendOpenGui(ServerPlayerEntity player, BlockPos pos, long platformId) {
         PacketByteBuf buf = PacketByteBufs.create();
         buf.writeBlockPos(pos);
+        buf.writeLong(platformId);
         ServerPlayNetworking.send(player, OPEN_RIDING_POS_GUI, buf);
     }
 }

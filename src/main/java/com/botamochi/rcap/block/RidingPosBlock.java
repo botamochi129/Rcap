@@ -2,6 +2,7 @@ package com.botamochi.rcap.block;
 
 import com.botamochi.rcap.block.entity.RidingPosBlockEntity;
 import com.botamochi.rcap.network.RcapServerPackets;
+import com.botamochi.rcap.network.ServerNetworking;
 import net.minecraft.block.BlockWithEntity;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
@@ -29,8 +30,8 @@ public class RidingPosBlock extends BlockWithEntity {
     public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
         if (!world.isClient && player instanceof ServerPlayerEntity serverPlayer) {
             BlockEntity be = world.getBlockEntity(pos);
-            if (be instanceof RidingPosBlockEntity) {
-                RcapServerPackets.sendOpenGui(serverPlayer, pos); // <- ここでパケット送信！
+            if (be instanceof RidingPosBlockEntity riding) {
+                RcapServerPackets.sendOpenGui(serverPlayer, pos, riding.getPlatformId()); // 同期パケット送信
             }
         }
         return ActionResult.SUCCESS;

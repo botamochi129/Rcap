@@ -96,6 +96,19 @@ public class RidingPosScreen extends Screen {
         MinecraftClient.getInstance().setScreen(null);
     }
 
+    public BlockPos getBlockPos() {
+        return blockPos;
+    }
+
+    /**
+     * サーバから送られた platformId を GUI の選択チェックボックスに反映する
+     */
+    public void updateSelectedPlatform(long platformId) {
+        platformList.children().forEach(entry -> {
+            entry.checkbox.setChecked(entry.platformId == platformId);
+        });
+    }
+
     @Override
     public void close() {
         closeWithSave();
@@ -143,35 +156,50 @@ public class RidingPosScreen extends Screen {
         }
     }
 
-    private static class PlatformEntry extends EntryListWidget.Entry<PlatformEntry> {
+    public static class PlatformEntry extends EntryListWidget.Entry<PlatformEntry> {
         public final long platformId;
-        public final CheckboxWidget checkbox;
+        public final MyCheckboxWidget checkbox;
 
         public PlatformEntry(String label, long platformId, boolean selected) {
             this.platformId = platformId;
-            this.checkbox = new CheckboxWidget(0, 0, LIST_WIDTH - 10, ITEM_HEIGHT, Text.literal(label), selected);
+            this.checkbox = new MyCheckboxWidget(0, 0, LIST_WIDTH - 10, ITEM_HEIGHT, Text.literal(label), selected);
         }
 
-        @Override
-        public void render(MatrixStack matrices, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean hovered, float delta) {
-            checkbox.x = x + 5;
-            checkbox.y = y;
-            checkbox.render(matrices, mouseX, mouseY, delta);
-        }
-
-        // ✅ Mouse Click 伝搬を追加（これが超重要）
         @Override
         public boolean mouseClicked(double mouseX, double mouseY, int button) {
             return checkbox.mouseClicked(mouseX, mouseY, button);
         }
 
-        // ✅ Yarn 1.19.2 では @Override なしでOK
         public List<? extends Element> children() {
             return List.of(checkbox);
         }
 
         public List<? extends Selectable> selectableChildren() {
             return List.of(checkbox);
+        }
+
+        @Override
+        public void render(MatrixStack matrices, int index, int y, int x, int entryWidth,
+                           int entryHeight, int mouseX, int mouseY, boolean hovered, float delta) {
+            checkbox.x = x + 5;
+            checkbox.y = y;
+            checkbox.render(matrices, mouseX, mouseY, delta);
+        }
+    }
+
+    public static class MyCheckboxWidget extends CheckboxWidget {
+
+        public MyCheckboxWidget(int x, int y, int width, int height, Text message, boolean checked) {
+            super(x, y, width, height, message, checked);
+        }
+
+        // ✅ 自作チェック切り替えメソッド
+        public void setChecked(boolean value) {
+            setChecked(value);
+        }
+
+        public boolean isChecked() {
+            return this.isChecked();
         }
     }
 }
