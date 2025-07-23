@@ -67,7 +67,7 @@ public abstract class DashboardScreenMixin extends Screen {
 
         buttonAddCompany = new ButtonWidget(
                 0,  // 路線と同じ右上レイアウト
-                height,                // 高さはMTRと合わせる
+                height - 20,                // 高さはMTRと合わせる
                 BUTTON_WIDTH,
                 20,
                 Text.translatable("rcap.gui.add"),  // または Text.literal("+")
@@ -81,13 +81,10 @@ public abstract class DashboardScreenMixin extends Screen {
         buttonAddCompany.visible = false; // 初期は非表示
         addDrawableChild(buttonAddCompany);
 
-        // ☑ 仮会社追加（表示確認用）
-        CompanyManager.COMPANY_LIST.clear();
-        CompanyManager.COMPANY_LIST.add(new Company(System.currentTimeMillis(), "サンプル株式会社", 0x00AAFF));
-
-        // 👉 本体ロジック
         companyDashboardList = new CompanyDashboardList();
-        companyDashboardList.setVisible(false); // 初期非表示
+        companyDashboardList.setVisible(false);
+
+        companyDashboardList.height = height - 40;
 
         // 👉 ラッパーを add ～ 系に渡す（これが Drawable & Element & Selectable ）
         companyDashboardListWrapper = new CompanyDashboardListWrapper(companyDashboardList, this.textRenderer);
@@ -134,5 +131,9 @@ public abstract class DashboardScreenMixin extends Screen {
         companyDashboardList.renderCompanyList(matrices, this.textRenderer);
 
         buttonAddCompany.visible = rcap_isCompanyTabSelected;
+    }
+
+    public CompanyDashboardList getCompanyDashboardList() {
+        return companyDashboardList;
     }
 }

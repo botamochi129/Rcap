@@ -42,9 +42,11 @@ public class CompanyDashboardList extends DashboardList {
 
     public void resetData() {
         final var data = CompanyManager.COMPANY_LIST.stream()
+                .peek(c -> System.out.println("Company in list: " + c.name)) // 👈 デバッグ
                 .map(c -> (NameColorDataBase) c)
                 .collect(Collectors.toList());
 
+        System.out.println("Companies count: " + data.size());
         setData(data, false, false, false, false, false, false);
     }
 
