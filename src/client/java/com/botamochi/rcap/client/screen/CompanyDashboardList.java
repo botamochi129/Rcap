@@ -101,9 +101,7 @@ public class CompanyDashboardList extends DashboardList {
 
             int drawY = y + 6 + 24 + 20 * count;
 
-            DrawableHelper.fill(matrices, x, drawY + 2, x + 4, drawY + 18, 0xFF000000 | company.color);
-            font.drawWithShadow(matrices, company.name, x + 8, drawY + 4, 0xFFFFFF);
-            font.drawWithShadow(matrices, "路線数: " + company.ownedRoutes.size(), x + 8, drawY + 12, 0xAAAAAA);
+            font.drawWithShadow(matrices, "路線数: " + company.ownedRoutes.size(), x + 8, drawY + 10, 0xAAAAAA);
 
             count++;
         }
