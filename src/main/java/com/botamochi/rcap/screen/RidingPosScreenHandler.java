@@ -1,6 +1,7 @@
 package com.botamochi.rcap.screen;
 
 import com.botamochi.rcap.block.entity.RidingPosBlockEntity;
+import com.botamochi.rcap.screen.ModScreens;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
@@ -8,11 +9,19 @@ import net.minecraft.screen.ScreenHandler;
 
 public class RidingPosScreenHandler extends ScreenHandler {
 
-    private final RidingPosBlockEntity blockEntity;
+    public RidingPosBlockEntity blockEntity;
 
-    public RidingPosScreenHandler(int syncId, PlayerInventory playerInventory, RidingPosBlockEntity blockEntity) {
+    public RidingPosScreenHandler(int syncId, PlayerInventory inventory, RidingPosBlockEntity entity) {
         super(ModScreens.RIDING_POS_SCREEN_HANDLER_TYPE, syncId);
-        this.blockEntity = blockEntity;
+        this.blockEntity = entity;
+    }
+
+    public long getPlatformId() {
+        return blockEntity.getPlatformId();
+    }
+
+    public void setPlatformId(long id) {
+        blockEntity.setPlatformId(id);
     }
 
     @Override
@@ -22,14 +31,6 @@ public class RidingPosScreenHandler extends ScreenHandler {
 
     @Override
     public boolean canUse(PlayerEntity player) {
-        return blockEntity.getPos().isWithinDistance(player.getBlockPos(), 8);
-    }
-
-    public long getPlatformId() {
-        return blockEntity.getPlatformId();
-    }
-
-    public void setPlatformId(long id) {
-        blockEntity.setPlatformId(id);
+        return true;
     }
 }

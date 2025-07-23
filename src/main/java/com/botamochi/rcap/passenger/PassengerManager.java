@@ -10,13 +10,14 @@ import java.util.List;
 public class PassengerManager {
 
     private static final List<Passenger> PASSENGERS = new ArrayList<>();
+    private static final long WALK_TIME = 10_000L; // 10秒、仮設定
 
     public static void tick(MinecraftServer server) {
         long now = System.currentTimeMillis();
         int hour = java.time.LocalTime.now().getHour(); // 0〜23
 
         if (hour >= 6 && hour < 8) { // 朝
-            for (HousingBlockEntity housing : getAllHousingBlocks(server)) {
+            for (HousingBlockEntity housing : HousingBlockEntity.getAllHousingBlocks(server)) {
                 housing.spawnPassengersIfTime(now);
             }
         }

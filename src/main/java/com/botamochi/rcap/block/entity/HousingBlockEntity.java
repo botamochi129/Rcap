@@ -69,10 +69,9 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
     public static List<HousingBlockEntity> getAllHousingBlocks(MinecraftServer server) {
         List<HousingBlockEntity> result = new ArrayList<>();
         for (ServerWorld world : server.getWorlds()) {
-            world.iterateEntities(null, entity -> false); // 不要なら削除
             for (BlockPos pos : BlockPos.iterate(
-                    world.getBottomY(), world.getMinBuildHeight(),
-                    world.getTopY() - 1, world.getMaxBuildHeight())) {
+                    world.getBottomY(), 0, world.getBottomY(),
+                    world.getTopY() - 1, 255, world.getTopY() - 1)) {
                 BlockEntity be = world.getBlockEntity(pos);
                 if (be instanceof HousingBlockEntity hbe) {
                     result.add(hbe);
