@@ -1,6 +1,7 @@
 package com.botamochi.rcap.block.entity;
 
 import com.botamochi.rcap.Rcap;
+import com.botamochi.rcap.screen.RidingPosScreenHandler;
 import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 import net.minecraft.block.Block;
 import net.minecraft.block.entity.BlockEntity;

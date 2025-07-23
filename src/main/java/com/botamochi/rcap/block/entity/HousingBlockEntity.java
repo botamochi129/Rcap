@@ -1,6 +1,7 @@
 package com.botamochi.rcap.block.entity;
 
 import com.botamochi.rcap.Rcap;
+import com.botamochi.rcap.data.OfficeManager;
 import com.botamochi.rcap.passenger.Passenger;
 import com.botamochi.rcap.passenger.PassengerManager;
 import com.botamochi.rcap.screen.HousingBlockScreenHandler;
@@ -14,11 +15,15 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.screen.NamedScreenHandlerFactory;
 import net.minecraft.screen.ScreenHandler;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHandlerFactory {
@@ -59,6 +64,22 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
         PassengerManager.addPassenger(p);
         office.assignPassenger(p.uuid); // 忘れずにオフィスへ割り当て
         spawnedToday++;
+    }
+
+    public static List<HousingBlockEntity> getAllHousingBlocks(MinecraftServer server) {
+        List<HousingBlockEntity> result = new ArrayList<>();
+        for (ServerWorld world : server.getWorlds()) {
+            world.iterateEntities(null, entity -> false); // 不要なら削除
+            for (BlockPos pos : BlockPos.iterate(
+                    world.getBottomY(), world.getMinBuildHeight(),
+                    world.getTopY() - 1, world.getMaxBuildHeight())) {
+                BlockEntity be = world.getBlockEntity(pos);
+                if (be instanceof HousingBlockEntity hbe) {
+                    result.add(hbe);
+                }
+            }
+        }
+        return result;
     }
 
     @Override
