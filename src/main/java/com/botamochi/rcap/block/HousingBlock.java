@@ -82,6 +82,22 @@ public class HousingBlock extends BlockWithEntity {
             long homePlatformId = RailwayData.getClosePlatformId(railwayData.platforms, railwayData.dataCache, homePos, 1000, -64, 320);
             long officePlatformId = RailwayData.getClosePlatformId(railwayData.platforms, railwayData.dataCache, officePos, 1000, -64, 320);
 
+            System.out.println("[Debug] railwayData.platforms size: " + railwayData.platforms.size());
+            System.out.println("[Debug] homePos: " + homePos);
+            for (Platform platform : railwayData.platforms) {
+                BlockPos midPos = platform.getMidPos();
+                System.out.println("[Debug] platformId=" + platform.id + ", midPos=" + midPos);
+            }
+
+            if (homePlatformId == 0L) {
+                player.sendMessage(Text.literal("住宅近辺に有効なプラットフォームが見つかりません。"), false);
+                return ActionResult.SUCCESS;
+            }
+            if (officePlatformId == 0L) {
+                player.sendMessage(Text.literal("オフィス近辺に有効なプラットフォームが見つかりません。"), false);
+                return ActionResult.SUCCESS;
+            }
+
             Station homestation = railwayData.dataCache.platformIdToStation.get(homePlatformId);
             Station officestation = railwayData.dataCache.platformIdToStation.get(officePlatformId);
             System.out.println("homePlatId = " + homePlatformId + ", officePlatId = " + officePlatformId);

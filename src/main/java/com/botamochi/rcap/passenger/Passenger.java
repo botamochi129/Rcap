@@ -4,6 +4,7 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtLong;
+import net.minecraft.util.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,6 +14,7 @@ public class Passenger {
     public String name;
     public double x, y, z;
     public int color;
+    public int skinIndex;
 
     // --- 追加部分 ---
     /** 移動ルートとしてのプラットフォームIDリスト */
@@ -31,6 +33,11 @@ public class Passenger {
     }
     public MoveState moveState = MoveState.IDLE;
 
+    public static final Identifier[] SKINS = {
+            new Identifier("rcap", "textures/entity/passenger/custom_skin.png"),
+            new Identifier("rcap", "textures/entity/passenger/custom_skin_2.png")
+    };
+
     // --- コンストラクタ・NBT変換は既存コード＋追加分 ---
 
     public Passenger(long id, String name, double x, double y, double z, int color) {
@@ -40,6 +47,7 @@ public class Passenger {
         this.y = y;
         this.z = z;
         this.color = color;
+        this.skinIndex = (int) (Math.random() * SKINS.length);
     }
 
     /** NBTシリアライズ */
@@ -61,6 +69,8 @@ public class Passenger {
 
         tag.putInt("routeTargetIndex", routeTargetIndex);
         tag.putInt("moveState", moveState.ordinal());
+
+        tag.putInt("skinIndex", skinIndex);
 
         return tag;
     }
@@ -96,6 +106,7 @@ public class Passenger {
         } else {
             p.moveState = MoveState.IDLE;
         }
+        p.skinIndex = tag.contains("skinIndex") ? tag.getInt("skinIndex") : (int)(Math.random() * SKINS.length);
         return p;
     }
 }

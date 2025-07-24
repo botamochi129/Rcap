@@ -22,7 +22,6 @@ import java.util.List;
  * 乗客を プレイヤーモデル + カスタムスキン画像 で描画するクラス（Entity使用なし）
  */
 public class PassengerRenderer {
-    private static final Identifier SKIN_TEXTURE = new Identifier("rcap", "textures/entity/passenger/custom_skin.png");
     private static PassengerModel playerModel = null;
 
     public static void register() {
@@ -55,16 +54,23 @@ public class PassengerRenderer {
 
                 BlockPos pos = new BlockPos(Math.floor(passenger.x), Math.floor(passenger.y), Math.floor(passenger.z));
                 int lightLevel = context.world().getLightLevel(pos);
-
                 int light = LightmapTextureManager.pack(lightLevel, 0);
 
                 matrices.push();
                 matrices.translate(dx, dy + 1.5, dz);
                 matrices.scale(-1f, -1f, 1f);
                 playerModel.setAngles(null, 0f, 0f, 0f, 0f, 0f);
+
+                // skinIndexが範囲内かチェックし安全に取り出す
+                int skinIndex = passenger.skinIndex;
+                if (skinIndex < 0 || skinIndex >= Passenger.SKINS.length) {
+                    skinIndex = 0; // デフォルト
+                }
+                Identifier skinToUse = Passenger.SKINS[skinIndex];
+
                 playerModel.render(
                         matrices,
-                        consumers.getBuffer(RenderLayer.getEntityTranslucentCull(SKIN_TEXTURE)),
+                        consumers.getBuffer(RenderLayer.getEntityTranslucentCull(skinToUse)),
                         light,
                         OverlayTexture.DEFAULT_UV,
                         1f, 1f, 1f, 1f
