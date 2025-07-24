@@ -11,32 +11,24 @@ import com.botamochi.rcap.data.HousingManager;
 import com.botamochi.rcap.network.HousingBlockPacketReceiver;
 import com.botamochi.rcap.network.OfficeBlockPacketReceiver;
 import com.botamochi.rcap.network.RcapServerPackets;
+import com.botamochi.rcap.network.ServerNetworking;
 import com.botamochi.rcap.passenger.PassengerManager;
 import com.botamochi.rcap.screen.ModScreens;
-import com.botamochi.rcap.network.ServerNetworking;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.block.Block;
 import net.minecraft.block.Material;
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroup;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtIo;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.registry.Registry;
-import net.minecraft.world.World;
-
-import java.io.File;
-import java.io.IOException;
 
 public class Rcap implements ModInitializer {
     public static final String MOD_ID = "rcap";
@@ -44,7 +36,7 @@ public class Rcap implements ModInitializer {
     public static final Block OFFICE_BLOCK = new OfficeBlock(FabricBlockSettings.of(Material.STONE).strength(2.0f));
     public static BlockEntityType<OfficeBlockEntity> OFFICE_BLOCK_ENTITY;
     public static BlockEntityType<HousingBlockEntity> HOUSING_BLOCK_ENTITY;
-    public static final Block RIDING_POS_BLOCK = new RidingPosBlock(FabricBlockSettings.of(Material.METAL).strength(2.0f));
+    public static final Block RIDING_POS_BLOCK = new RidingPosBlock(FabricBlockSettings.of(Material.STONE).strength(2.0f));
     public static BlockEntityType<RidingPosBlockEntity> RIDING_POS_BLOCK_ENTITY;
 
     @Override
@@ -99,6 +91,28 @@ public class Rcap implements ModInitializer {
         HousingBlockPacketReceiver.register();
         OfficeBlockPacketReceiver.register();
 
-        ServerTickEvents.START_SERVER_TICK.register(PassengerManager::tick);
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            ServerWorld world = server.getOverworld();
+            if (world != null) PassengerManager.init(world);
+        });
+
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            // サンプル: 乗客ランダム移動処理やAI・状態更新
+            // for(Passenger p: PassengerManager.PASSENGER_LIST) { ...update p.x, p.y, p.z... }
+
+            // 一定tickごとに全クライアントへ同期
+            if (server.getTicks() % 20 == 0) { // 20tick=1秒ごと
+                PassengerManager.broadcastToAllPlayers(server);
+            }
+        });
+
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            for (ServerWorld w : server.getWorlds()) {
+                long time = w.getTime();
+                for (HousingBlockEntity house : HousingManager.getAll(w)) {
+                    house.spawnPassengersIfTime(w, time);
+                }
+            }
+        });
     }
 }

@@ -2,6 +2,8 @@ package com.botamochi.rcap.network;
 
 import com.botamochi.rcap.data.Company;
 import com.botamochi.rcap.data.CompanyManager;
+import com.botamochi.rcap.passenger.Passenger;
+import com.botamochi.rcap.passenger.PassengerManager;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.PacketByteBuf;
@@ -18,6 +20,15 @@ public class RcapServerPackets {
     public static final Identifier UPDATE_COMPANY = new Identifier("rcap", "update_company");
     public static final Identifier OPEN_RIDING_POS_GUI = new Identifier("rcap", "open_riding_pos_gui");
     public static final Identifier SYNC_COMPANY_LIST = new Identifier("rcap", "sync_company_list");
+    public static final Identifier SYNC_PASSENGER_LIST = new Identifier("rcap", "sync_passenger_list");
+
+    public static void sendPassengerList(ServerPlayerEntity player) {
+        PacketByteBuf buf = PacketByteBufs.create();
+        List<Passenger> list = PassengerManager.PASSENGER_LIST;
+        buf.writeInt(list.size());
+        for (Passenger p : list) buf.writeNbt(p.toNbt());
+        ServerPlayNetworking.send(player, SYNC_PASSENGER_LIST, buf);
+    }
 
     public static void sendCompanyList(ServerPlayerEntity player) {
         PacketByteBuf buf = PacketByteBufs.create();

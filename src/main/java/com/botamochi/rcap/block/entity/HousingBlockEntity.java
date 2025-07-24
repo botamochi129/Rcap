@@ -49,24 +49,34 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
 
     private int lastSpawnDay = -1; // 現実「日」（0〜365）
 
-    public void spawnPassengersIfTime(long now) {
-        // 現在日を取得
-        int currentDay = java.time.LocalDate.now().getDayOfYear();
+    public void spawnPassengersIfTime(ServerWorld world, long worldTime) {
+        // ワールド時間を日数に変換（1日 = 24000tick）
+        long currentDay = worldTime / 24000L;
 
         if (lastSpawnDay != currentDay) {
             spawnedToday = 0;
-            lastSpawnDay = currentDay;
+            lastSpawnDay = (int) currentDay;
         }
 
         if (spawnedToday >= householdSize) return;
 
+        // ここで適切なオフィスを探す（割り当て先）
         OfficeBlockEntity office = OfficeManager.getRandomAvailableOffice();
         if (office == null) return;
 
-        Passenger p = new Passenger(UUID.randomUUID(), getPos().asLong(), office.getPos().asLong());
-        PassengerManager.addPassenger(p);
-        office.assignPassenger(p.uuid); // 忘れずにオフィスへ割り当て
+        // プレイヤー風Passengerのデータとして即位置に表示（ランダム色・名前対応可）
+        Passenger passenger = new Passenger(
+                System.currentTimeMillis(),                  // ID（ユニーク long 値）
+                "Passenger-" + spawnedToday,                       // 名前（仮:「乗客1」など）
+                pos.getX() + 0.5, pos.getY() + 1, pos.getZ() + 0.5, // 家 (中心座標)
+                0xFFFFFF                                     // 色（仮に白）
+        );
+
+        PassengerManager.PASSENGER_LIST.add(passenger);
+        PassengerManager.save();
+
         spawnedToday++;
+        markDirty();
     }
 
     public static List<HousingBlockEntity> getAllHousingBlocks(MinecraftServer server) {

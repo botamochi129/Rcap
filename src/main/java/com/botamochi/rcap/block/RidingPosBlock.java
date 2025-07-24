@@ -3,6 +3,7 @@ package com.botamochi.rcap.block;
 import com.botamochi.rcap.block.entity.RidingPosBlockEntity;
 import com.botamochi.rcap.network.RcapServerPackets;
 import com.botamochi.rcap.network.ServerNetworking;
+import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockWithEntity;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
@@ -36,4 +37,7 @@ public class RidingPosBlock extends BlockWithEntity {
         }
         return ActionResult.SUCCESS;
     }
+
+    @Override
+    public BlockRenderType getRenderType(BlockState state) { return BlockRenderType.MODEL ; }
 }

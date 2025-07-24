@@ -5,6 +5,8 @@ import com.botamochi.rcap.client.screen.RidingPosScreen;
 import com.botamochi.rcap.data.Company;
 import com.botamochi.rcap.data.CompanyManager;
 import com.botamochi.rcap.network.RcapServerPackets;
+import com.botamochi.rcap.passenger.Passenger;
+import com.botamochi.rcap.passenger.PassengerManager;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.client.MinecraftClient;
@@ -45,6 +47,16 @@ public class RcapClientPackets {
                     // ✅ GUIを開く
                     client.setScreen(new RidingPosScreen(ridingPos));
                 }
+            });
+        });
+
+        ClientPlayNetworking.registerGlobalReceiver(RcapServerPackets.SYNC_PASSENGER_LIST, (client, handler, buf, sender) -> {
+            int size = buf.readInt();
+            ArrayList<Passenger> list = new ArrayList<>();
+            for (int i = 0; i < size; i++) list.add(Passenger.fromNbt(buf.readNbt()));
+            client.execute(() -> {
+                PassengerManager.PASSENGER_LIST.clear();
+                PassengerManager.PASSENGER_LIST.addAll(list);
             });
         });
     }

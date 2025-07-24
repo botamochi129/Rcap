@@ -27,7 +27,8 @@ public abstract class DashboardScreenMixin extends Screen implements DashboardSc
     @Shadow @Final private ButtonWidget buttonTabRoutes;
     @Shadow @Final private ButtonWidget buttonTabDepots;
 
-    @SuppressWarnings("invalid") @Shadow @Final private DashboardList dashboardList;
+    @SuppressWarnings("invalid")
+    @Shadow @Final private DashboardList dashboardList;
 
     @Unique private ButtonWidget buttonAddCompany;
 
