@@ -50,7 +50,8 @@ public class CompanyDashboardList extends DashboardList {
                     }
                 },
 
-                () -> {},   // onSort
+                () -> {
+                },   // onSort
                 null,       // onAdd
                 null,       // onDelete は描画・クリックで処理
                 () -> CompanyManager.COMPANY_LIST.stream().map(c -> (NameColorDataBase) c).collect(Collectors.toList()),
@@ -76,7 +77,9 @@ public class CompanyDashboardList extends DashboardList {
         );
     }
 
-    /** 描画：リスト本体 + 削除ボタン **/
+    /**
+     * 描画：リスト本体 + 削除ボタン
+     **/
     public void renderCompanyList(MatrixStack matrices, TextRenderer font) {
         if (visible) {
             super.render(matrices, font);

@@ -27,6 +27,9 @@ public class ServerNetworking {
                 if (company != null) {
                     company.name = name;
                     company.color = color;
+
+                    CompanyManager.save();
+                    CompanyManager.broadcastToAllPlayers(server);
                 }
             });
         });
@@ -35,9 +38,29 @@ public class ServerNetworking {
             long id = buf.readLong();
             String name = buf.readString();
             int color = buf.readInt();
+
             server.execute(() -> {
                 if (CompanyManager.getById(id) == null) {
                     CompanyManager.COMPANY_LIST.add(new Company(id, name, color));
+                    CompanyManager.save(); // 忘れずに保存しておく
+
+                    // 🔁 全クライアントに同期！
+                    CompanyManager.broadcastToAllPlayers(server);
+                }
+            });
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(DELETE_COMPANY, (server, player, handler, buf, responseSender) -> {
+            long id = buf.readLong();
+
+            server.execute(() -> {
+                Company company = CompanyManager.getById(id);
+                if (company != null) {
+                    CompanyManager.COMPANY_LIST.remove(company);
+                    CompanyManager.save();
+
+                    // 🔁 削除後にも全プレイヤーへ再送
+                    CompanyManager.broadcastToAllPlayers(server);
                 }
             });
         });

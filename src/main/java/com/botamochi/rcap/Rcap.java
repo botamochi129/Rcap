@@ -83,6 +83,11 @@ public class Rcap implements ModInitializer {
                 CompanyManager.init(world);
             }
         });
+
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            RcapServerPackets.sendCompanyList(handler.getPlayer());
+        });
+
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
             CompanyManager.save(); // ← 忘れずに追加！
         });

@@ -1,7 +1,9 @@
 package com.botamochi.rcap.data;
 
+import com.botamochi.rcap.network.RcapServerPackets;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.world.PersistentStateManager;
 
@@ -43,5 +45,11 @@ public class CompanyManager {
             if (company.id == id) return company;
         }
         return null;
+    }
+
+    public static void broadcastToAllPlayers(MinecraftServer server) {
+        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+            RcapServerPackets.sendCompanyList(player); // ← これが送信処理
+        }
     }
 }

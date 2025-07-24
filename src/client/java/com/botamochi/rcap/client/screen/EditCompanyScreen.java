@@ -1,5 +1,6 @@
 package com.botamochi.rcap.client.screen;
 
+import com.botamochi.rcap.client.network.ClientNetworking;
 import com.botamochi.rcap.data.Company;
 import com.botamochi.rcap.data.CompanyManager;
 import net.fabricmc.loader.api.FabricLoader;
@@ -98,10 +99,6 @@ public class EditCompanyScreen extends Screen {
         addDrawableChild(new ButtonWidget(centerX - 100, startY + 120, 98, 20, Text.literal("保存"), button -> {
             company.name = nameField.getText().trim();
 
-            if (!CompanyManager.COMPANY_LIST.contains(company)) {
-                CompanyManager.COMPANY_LIST.add(company);
-            }
-
             // 🔍 保存に使われるIDを確認
             System.out.println("[RCAP] 保存前 route: " + selectedRouteIds);
             System.out.println("[RCAP] 保存前 depot: " + selectedDepotIds);
@@ -112,9 +109,16 @@ public class EditCompanyScreen extends Screen {
             company.ownedDepots.clear();
             company.ownedDepots.addAll(selectedDepotIds);
 
+            if (!CompanyManager.COMPANY_LIST.contains(company)) {
+                CompanyManager.COMPANY_LIST.add(company);
+                ClientNetworking.sendCreateCompanyPacket(company); // ✅ 新規作成の場合のみ送信
+            } else {
+                ClientNetworking.sendUpdateCompanyPacket(company); // ✅ 既存なら更新を送信
+            }
             CompanyManager.save();
 
             dashboardList.resetData();
+
             MinecraftClient.getInstance().setScreen(parent);
         }));
 

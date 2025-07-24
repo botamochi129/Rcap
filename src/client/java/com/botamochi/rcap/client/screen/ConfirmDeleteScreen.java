@@ -1,5 +1,6 @@
 package com.botamochi.rcap.client.screen;
 
+import com.botamochi.rcap.client.network.ClientNetworking;
 import com.botamochi.rcap.data.Company;
 import com.botamochi.rcap.data.CompanyManager;
 import net.minecraft.client.MinecraftClient;
@@ -18,6 +19,7 @@ public class ConfirmDeleteScreen extends ConfirmScreen {
                 confirmed -> {
                     if (confirmed) {
                         CompanyManager.COMPANY_LIST.removeIf(c -> c.id == company.id);
+                        ClientNetworking.sendDeleteCompanyPacket(company.id);
                         CompanyManager.save(); // PersistentStateに保存
                         dashboardList.resetData(); // リスト更新
                     }

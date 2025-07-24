@@ -17,6 +17,19 @@ import java.util.List;
 public class RcapClientPackets {
 
     public static void register() {
+        ClientPlayNetworking.registerGlobalReceiver(RcapServerPackets.SYNC_COMPANY_LIST, (client, handler, buf, responseSender) -> {
+            int size = buf.readInt();
+            List<Company> companies = new ArrayList<>();
+            for (int i = 0; i < size; i++) {
+                companies.add(Company.fromNBT(buf.readNbt())); // ← Company.fromNBT は既にあり ✅
+            }
+
+            client.execute(() -> {
+                CompanyManager.COMPANY_LIST.clear();
+                CompanyManager.COMPANY_LIST.addAll(companies);
+            });
+        });
+
         ClientPlayNetworking.registerGlobalReceiver(RcapServerPackets.OPEN_RIDING_POS_GUI, (client, handler, buf, responseSender) -> {
             BlockPos pos = buf.readBlockPos();
             long platformId = buf.readLong();
