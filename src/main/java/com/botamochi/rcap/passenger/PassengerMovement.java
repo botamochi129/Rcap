@@ -47,9 +47,16 @@ public class PassengerMovement {
 
         final double speed = 0.05;
 
-        // ログ出力（tick毎の乗客の状態）
-        LOGGER.debug("[Passenger] {} (ID:{}) moveState: {}, pos: ({}, {}, {}), targetPlatform: {}, distanceSq: {}",
+        LOGGER.info("[Passenger] {} (ID:{}) moveState: {}, pos=({}, {}, {}), targetPlatformId: {}, distSq: {}",
                 passenger.name, passenger.id, passenger.moveState, passenger.x, passenger.y, passenger.z, targetPlatformId, distanceSq);
+
+        if (passenger.moveState == Passenger.MoveState.WALKING_TO_PLATFORM) {
+            if (distanceSq < 0.25) {
+                LOGGER.info("[Passenger] {} (ID:{}) reached platform {}, changing to WAITING_FOR_TRAIN", passenger.name, passenger.id, targetPlatformId);
+            } else {
+                LOGGER.info("[Passenger] {} (ID:{}) moving towards platform {}", passenger.name, passenger.id, targetPlatformId);
+            }
+        }
 
         switch (passenger.moveState) {
             case WALKING_TO_PLATFORM:
@@ -64,7 +71,14 @@ public class PassengerMovement {
                 }
                 break;
             case WAITING_FOR_TRAIN:
-                // TODO: 電車到着待ちログなど
+                if (passenger.routeTargetIndex + 1 < route.size()) {
+                    passenger.routeTargetIndex++;
+                    passenger.moveState = Passenger.MoveState.WALKING_TO_PLATFORM;
+                    LOGGER.info("[Passenger] {} (ID:{}) moves to next platform index {}", passenger.name, passenger.id, passenger.routeTargetIndex);
+                } else {
+                    passenger.moveState = Passenger.MoveState.IDLE;
+                    LOGGER.info("[Passenger] {} (ID:{}) has reached final destination and is now idle", passenger.name, passenger.id);
+                }
                 break;
             case ON_TRAIN:
                 // TODO: 電車内移動ログなど

@@ -16,6 +16,7 @@ import com.botamochi.rcap.passenger.Passenger;
 import com.botamochi.rcap.passenger.PassengerManager;
 import com.botamochi.rcap.passenger.PassengerMovement;
 import com.botamochi.rcap.screen.ModScreens;
+import mtr.data.RailwayData;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -111,12 +112,23 @@ public class Rcap implements ModInitializer {
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             for (ServerWorld w : server.getWorlds()) {
                 long time = w.getTime();
+
+                // 住宅から乗客スポーン（既存のコード）
                 for (HousingBlockEntity house : HousingManager.getAll(w)) {
                     house.spawnPassengersIfTime(w, time);
                 }
 
-                for (Passenger passenger : PassengerManager.PASSENGER_LIST) {
-                    PassengerMovement.updatePassenger(w, passenger);
+                synchronized (PassengerManager.PASSENGER_LIST) {
+                    // キューからの追加反映
+                    Passenger p;
+                    while ((p = PassengerManager.PENDING_ADD_QUEUE.poll()) != null) {
+                        PassengerManager.PASSENGER_LIST.add(p);
+                    }
+
+                    // 乗客更新ループ
+                    for (Passenger passenger : PassengerManager.PASSENGER_LIST) {
+                        PassengerMovement.updatePassenger(w, passenger);
+                    }
                 }
             }
         });

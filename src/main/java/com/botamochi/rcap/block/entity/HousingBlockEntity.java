@@ -5,18 +5,15 @@ import com.botamochi.rcap.data.HousingManager;
 import com.botamochi.rcap.data.OfficeManager;
 import com.botamochi.rcap.passenger.Passenger;
 import com.botamochi.rcap.passenger.PassengerManager;
-import com.botamochi.rcap.passenger.PassengerRouteFinder;
 import com.botamochi.rcap.screen.HousingBlockScreenHandler;
-import com.botamochi.rcap.screen.ModScreens;
+import mtr.data.RailwayData;
 import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityTicker;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.PacketByteBuf;
-import net.minecraft.screen.NamedScreenHandlerFactory;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -28,7 +25,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHandlerFactory {
     private int householdSize = 1;
@@ -51,61 +47,80 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
     private int lastSpawnDay = -1; // 現実「日」（0〜365）
 
     public void spawnPassengersIfTime(ServerWorld world, long worldTime) {
-        // ワールド時間を日数に変換（1日 = 24000tick）
+        // 日付管理
         long currentDay = worldTime / 24000L;
-
         if (lastSpawnDay != currentDay) {
             spawnedToday = 0;
             lastSpawnDay = (int) currentDay;
         }
-
         if (spawnedToday >= householdSize) return;
 
-        // オフィスを取得
         OfficeBlockEntity office = OfficeManager.getRandomAvailableOffice();
         if (office == null) return;
 
-        // 住宅とオフィスの座標のlong値を取得
-        long homePosLong = this.pos.asLong();
-        long officePosLong = office.getPos().asLong();
+        // RailwayData とルート探索モジュールを取得
+        RailwayData railwayData = mtr.data.RailwayData.getInstance(world);
+        if (railwayData == null || railwayData.railwayDataRouteFinderModule == null) return;
 
-        // ルート検索（MTRのプラットフォームIDリストを取得）
-        List<Long> route = PassengerRouteFinder.findRoute(world, homePosLong, officePosLong);
+        BlockPos homePos = this.pos;
+        BlockPos officePos = office.getPos();
 
-        // ルートが存在し、最初のプラットフォーム座標を取得
-        double startX = pos.getX() + 0.5;
-        double startY = pos.getY() + 1.0;
-        double startZ = pos.getZ() + 0.5;
+        int maxTickTime = 40;  // 適宜調整
 
-        if (!route.isEmpty()) {
-            long firstPlatformId = route.get(0);
-            var railwayData = mtr.data.RailwayData.getInstance(world);
-            if (railwayData != null && railwayData.dataCache.platformIdMap.containsKey(firstPlatformId)) {
-                var platform = railwayData.dataCache.platformIdMap.get(firstPlatformId);
-                BlockPos platPos = platform.getMidPos();
-                startX = platPos.getX() + 0.5;
-                startY = platPos.getY();
-                startZ = platPos.getZ() + 0.5;
+        // 非同期ルート検索の呼び出し
+        railwayData.railwayDataRouteFinderModule.findRoute(homePos, officePos, maxTickTime, (routeFinderDataList, duration) -> {
+            if (routeFinderDataList == null || routeFinderDataList.isEmpty()) {
+                // 経路無しまたは失敗時は生成しない（必要なら別途処理）
+                return;
             }
-        }
 
-        Passenger passenger = new Passenger(
-                System.currentTimeMillis(),
-                "Passenger-" + spawnedToday,
-                startX, startY, startZ,
-                0xFFFFFF
-        );
+            // 取得したルート情報からプラットフォームIDリストを作成
+            List<Long> platformIdList = new ArrayList<>();
+            for (var data : routeFinderDataList) {
+                var platform = railwayData.dataCache.platformIdMap.get(railwayData.dataCache.blockPosToPlatformId.get(data.pos.asLong()));
+                if (platform != null) {
+                    platformIdList.add(platform.id);
+                } else {
+                    platformIdList.add(-1L); // 不明プラットフォームIDは-1など適宜ハンドリング
+                }
+            }
 
-        // ルート・状態を設定
-        passenger.route = route;
-        passenger.routeTargetIndex = 0;
-        passenger.moveState = Passenger.MoveState.WALKING_TO_PLATFORM;
+            // 乗客初期位置はルートの最初のプラットフォームか住宅中心付近
+            double startX = homePos.getX() + 0.5;
+            double startY = homePos.getY() + 1.0;
+            double startZ = homePos.getZ() + 0.5;
 
-        PassengerManager.PASSENGER_LIST.add(passenger);
-        PassengerManager.save();
+            if (!platformIdList.isEmpty()) {
+                long firstPlatformId = platformIdList.get(0);
+                var platform = railwayData.dataCache.platformIdMap.get(firstPlatformId);
+                if (platform != null) {
+                    BlockPos platPos = platform.getMidPos();
+                    startX = platPos.getX() + 0.5;
+                    startY = platPos.getY();
+                    startZ = platPos.getZ() + 0.5;
+                }
+            }
 
-        spawnedToday++;
-        markDirty();
+            Passenger passenger = new Passenger(
+                    System.currentTimeMillis(),
+                    "Passenger-" + spawnedToday,
+                    startX, startY, startZ,
+                    0xFFFFFF
+            );
+
+            passenger.route = platformIdList;
+            passenger.routeTargetIndex = 0;
+            passenger.moveState = Passenger.MoveState.WALKING_TO_PLATFORM;
+
+            // 乗客リスト追加は同期化
+            synchronized (PassengerManager.PASSENGER_LIST) {
+                PassengerManager.PASSENGER_LIST.add(passenger);
+            }
+            PassengerManager.save();
+
+            spawnedToday++;
+            this.markDirty();
+        });
     }
 
     public static List<HousingBlockEntity> getAllHousingBlocks(MinecraftServer server) {

@@ -13,6 +13,8 @@ public class PassengerManager {
     public static List<Passenger> PASSENGER_LIST = new ArrayList<>();
     private static PassengerState passengerState;
 
+    public static final java.util.concurrent.ConcurrentLinkedQueue<Passenger> PENDING_ADD_QUEUE = new java.util.concurrent.ConcurrentLinkedQueue<>();
+
     // 必要です：ワールドロード時にPersistentStateからPassengerState取得＋PASSENGER_LIST同期
     public static void init(ServerWorld world) {
         PersistentStateManager manager = world.getPersistentStateManager();
