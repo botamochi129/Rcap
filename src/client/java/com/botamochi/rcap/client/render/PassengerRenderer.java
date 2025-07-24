@@ -46,21 +46,15 @@ public class PassengerRenderer {
 
                 if (dx * dx + dy * dy + dz * dz > 64 * 64) continue;
 
-                matrices.push();
-
-                matrices.translate(dx, dy + 1.5, dz);
-
-                // 頭など部位のアンバランスによる問題を減らすため、Y軸の反転は外し少し低めのマイナスに
-                matrices.scale(-1f, -1f, 1f);
-
-                // モデルの角度設定
-                playerModel.setAngles(null, 0f, 0f, 0f, 0f, 0f);
-
                 BlockPos pos = new BlockPos(Math.floor(passenger.x), Math.floor(passenger.y), Math.floor(passenger.z));
                 int lightLevel = context.world().getLightLevel(pos);
 
                 int light = LightmapTextureManager.pack(lightLevel, 0);  // SkyLight=lightLevel, BlockLight=0 として扱う
 
+                matrices.push();
+                matrices.translate(dx, dy + 1.5, dz);
+                matrices.scale(-1f, -1f, 1f);
+                playerModel.setAngles(null, 0f, 0f, 0f, 0f, 0f);
                 playerModel.render(
                         matrices,
                         consumers.getBuffer(RenderLayer.getEntityTranslucentCull(SKIN_TEXTURE)),
@@ -68,7 +62,6 @@ public class PassengerRenderer {
                         OverlayTexture.DEFAULT_UV,
                         1f, 1f, 1f, 1f
                 );
-
                 matrices.pop();
             }
         });

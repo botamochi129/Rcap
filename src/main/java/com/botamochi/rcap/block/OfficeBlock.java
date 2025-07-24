@@ -1,10 +1,13 @@
 package com.botamochi.rcap.block;
 
+import com.botamochi.rcap.Rcap;
 import com.botamochi.rcap.block.entity.OfficeBlockEntity;
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.BlockWithEntity;
+import net.minecraft.block.entity.BlockEntityTicker;
+import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
@@ -27,6 +30,12 @@ public class OfficeBlock extends BlockWithEntity {
             }
         }
         return ActionResult.SUCCESS;
+    }
+
+    @Override
+    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state,
+                                                                  BlockEntityType<T> type) {
+        return world.isClient() ? null : checkType(type, Rcap.OFFICE_BLOCK_ENTITY, OfficeBlockEntity::tick);
     }
 
     @Override

@@ -5,6 +5,7 @@ import com.botamochi.rcap.block.entity.HousingBlockEntity;
 
 import com.botamochi.rcap.passenger.Passenger;
 import com.botamochi.rcap.passenger.PassengerManager;
+import com.botamochi.rcap.passenger.PassengerRouteFinder;
 import com.botamochi.rcap.screen.HousingBlockScreenHandler;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.minecraft.block.BlockRenderType;
@@ -28,6 +29,8 @@ import net.minecraft.world.World;
 
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
+
 public class HousingBlock extends BlockWithEntity {
     public HousingBlock(Settings settings) {
         super(settings);
@@ -43,23 +46,53 @@ public class HousingBlock extends BlockWithEntity {
         if (!world.isClient) {
             BlockEntity be = world.getBlockEntity(pos);
             if (be instanceof HousingBlockEntity) {
-                player.openHandledScreen((HousingBlockEntity) be); // ← これだけでOK
+                player.openHandledScreen((HousingBlockEntity) be);
             }
 
-            // 乗客の一例追加
-            long newId = System.currentTimeMillis();
-            String name = "テスト乗客"; // 任意の名前
+            // ここで適当なオフィスを探す（例としてOfficeManagerなどを使ってください）
+            com.botamochi.rcap.block.entity.OfficeBlockEntity office = com.botamochi.rcap.data.OfficeManager.getRandomAvailableOffice();
+            if (office == null) {
+                player.sendMessage(Text.literal("利用可能なオフィスが見つかりません。"), false);
+                return ActionResult.SUCCESS;
+            }
 
-            // 座標はブロック中央 + 少し浮上（y + 1.0）
+            long newId = System.currentTimeMillis();
+            String name = "テスト乗客";
+
+            // 住宅・オフィスのBlockPosのlong値
+            long homeLong = pos.asLong();
+            long officeLong = office.getPos().asLong();
+
+            // ルート検索
+            List<Long> route = PassengerRouteFinder.findRoute(world, homeLong, officeLong);
+            System.out.println("[Debug] 生成乗客ID=" + newId + " ルートの長さ=" + route.size());
+
+            // 初期座標はルートの最初のプラットフォームの座標か住宅の中央に設定
             double x = pos.getX() + 0.5;
             double y = pos.getY() + 1.0;
             double z = pos.getZ() + 0.5;
 
-            int color = 0xFFFFFF; // 色は白
+            if (!route.isEmpty()) {
+                var railwayData = mtr.data.RailwayData.getInstance(world);
+                if (railwayData != null && railwayData.dataCache.platformIdMap.containsKey(route.get(0))) {
+                    var platform = railwayData.dataCache.platformIdMap.get(route.get(0));
+                    BlockPos platPos = platform.getMidPos();
+                    x = platPos.getX() + 0.5;
+                    y = platPos.getY();
+                    z = platPos.getZ() + 0.5;
+                }
+            }
 
-            Passenger passenger = new Passenger(newId, name, x, y, z, color);
+            // 乗客生成
+            Passenger passenger = new Passenger(newId, name, x, y, z, 0xFFFFFF);
+
+            // ルートと状態をセット
+            passenger.route = route;
+            passenger.routeTargetIndex = 0;
+            passenger.moveState = Passenger.MoveState.WALKING_TO_PLATFORM;
+
             PassengerManager.PASSENGER_LIST.add(passenger);
-            PassengerManager.save(); // PersistentStateに保存フラグ
+            PassengerManager.save();
 
             PassengerManager.broadcastToAllPlayers(((ServerWorld)world).getServer());
 

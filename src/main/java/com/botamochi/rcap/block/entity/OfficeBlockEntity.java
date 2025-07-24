@@ -1,6 +1,7 @@
 package com.botamochi.rcap.block.entity;
 
 import com.botamochi.rcap.Rcap;
+import com.botamochi.rcap.data.OfficeManager;
 import com.botamochi.rcap.screen.OfficeBlockScreenHandler;
 import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 import net.minecraft.block.BlockState;
@@ -16,6 +17,7 @@ import net.minecraft.screen.ScreenHandler;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -82,5 +84,11 @@ public class OfficeBlockEntity extends BlockEntity implements ExtendedScreenHand
     @Override
     public ScreenHandler createMenu(int syncId, PlayerInventory inventory, PlayerEntity player) {
         return new OfficeBlockScreenHandler(syncId, inventory, this.getPos(), this.staffCount);
+    }
+
+    public static <T extends BlockEntity> void tick(World world, BlockPos pos, BlockState state, T blockEntity) {
+        if (!world.isClient && blockEntity instanceof OfficeBlockEntity officeBlockEntity) {
+            OfficeManager.register(officeBlockEntity);
+        }
     }
 }

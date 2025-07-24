@@ -5,6 +5,7 @@ import com.botamochi.rcap.data.HousingManager;
 import com.botamochi.rcap.data.OfficeManager;
 import com.botamochi.rcap.passenger.Passenger;
 import com.botamochi.rcap.passenger.PassengerManager;
+import com.botamochi.rcap.passenger.PassengerRouteFinder;
 import com.botamochi.rcap.screen.HousingBlockScreenHandler;
 import com.botamochi.rcap.screen.ModScreens;
 import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
@@ -60,17 +61,45 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
 
         if (spawnedToday >= householdSize) return;
 
-        // ここで適切なオフィスを探す（割り当て先）
+        // オフィスを取得
         OfficeBlockEntity office = OfficeManager.getRandomAvailableOffice();
         if (office == null) return;
 
-        // プレイヤー風Passengerのデータとして即位置に表示（ランダム色・名前対応可）
+        // 住宅とオフィスの座標のlong値を取得
+        long homePosLong = this.pos.asLong();
+        long officePosLong = office.getPos().asLong();
+
+        // ルート検索（MTRのプラットフォームIDリストを取得）
+        List<Long> route = PassengerRouteFinder.findRoute(world, homePosLong, officePosLong);
+
+        // ルートが存在し、最初のプラットフォーム座標を取得
+        double startX = pos.getX() + 0.5;
+        double startY = pos.getY() + 1.0;
+        double startZ = pos.getZ() + 0.5;
+
+        if (!route.isEmpty()) {
+            long firstPlatformId = route.get(0);
+            var railwayData = mtr.data.RailwayData.getInstance(world);
+            if (railwayData != null && railwayData.dataCache.platformIdMap.containsKey(firstPlatformId)) {
+                var platform = railwayData.dataCache.platformIdMap.get(firstPlatformId);
+                BlockPos platPos = platform.getMidPos();
+                startX = platPos.getX() + 0.5;
+                startY = platPos.getY();
+                startZ = platPos.getZ() + 0.5;
+            }
+        }
+
         Passenger passenger = new Passenger(
-                System.currentTimeMillis(),                  // ID（ユニーク long 値）
-                "Passenger-" + spawnedToday,                       // 名前（仮:「乗客1」など）
-                pos.getX() + 0.5, pos.getY() + 1, pos.getZ() + 0.5, // 家 (中心座標)
-                0xFFFFFF                                     // 色（仮に白）
+                System.currentTimeMillis(),
+                "Passenger-" + spawnedToday,
+                startX, startY, startZ,
+                0xFFFFFF
         );
+
+        // ルート・状態を設定
+        passenger.route = route;
+        passenger.routeTargetIndex = 0;
+        passenger.moveState = Passenger.MoveState.WALKING_TO_PLATFORM;
 
         PassengerManager.PASSENGER_LIST.add(passenger);
         PassengerManager.save();

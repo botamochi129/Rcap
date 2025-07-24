@@ -12,7 +12,9 @@ import com.botamochi.rcap.network.HousingBlockPacketReceiver;
 import com.botamochi.rcap.network.OfficeBlockPacketReceiver;
 import com.botamochi.rcap.network.RcapServerPackets;
 import com.botamochi.rcap.network.ServerNetworking;
+import com.botamochi.rcap.passenger.Passenger;
 import com.botamochi.rcap.passenger.PassengerManager;
+import com.botamochi.rcap.passenger.PassengerMovement;
 import com.botamochi.rcap.screen.ModScreens;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -111,6 +113,10 @@ public class Rcap implements ModInitializer {
                 long time = w.getTime();
                 for (HousingBlockEntity house : HousingManager.getAll(w)) {
                     house.spawnPassengersIfTime(w, time);
+                }
+
+                for (Passenger passenger : PassengerManager.PASSENGER_LIST) {
+                    PassengerMovement.updatePassenger(w, passenger);
                 }
             }
         });
