@@ -5,8 +5,11 @@ import com.botamochi.rcap.block.entity.HousingBlockEntity;
 
 import com.botamochi.rcap.passenger.Passenger;
 import com.botamochi.rcap.passenger.PassengerManager;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import mtr.data.Platform;
 import mtr.data.RailwayData;
+import mtr.data.Route;
 import mtr.data.Station;
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
@@ -41,16 +44,30 @@ public class HousingBlock extends BlockWithEntity {
     public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
         if (!world.isClient) {
             BlockEntity be = world.getBlockEntity(pos);
-            if (!(be instanceof HousingBlockEntity)) {
+            if (!(be instanceof HousingBlockEntity housingBlockEntity)) {
                 return ActionResult.SUCCESS;
             }
 
-            player.openHandledScreen((HousingBlockEntity) be);
+            player.openHandledScreen(housingBlockEntity);
 
-            com.botamochi.rcap.block.entity.OfficeBlockEntity office = com.botamochi.rcap.data.OfficeManager.getRandomAvailableOffice();
+            // 住宅に保存されているオフィスを取得
+            com.botamochi.rcap.block.entity.OfficeBlockEntity office = null;
+            Long linkedOfficePosLong = housingBlockEntity.getLinkedOfficePosLong();
+            if (linkedOfficePosLong != null) {
+                office = com.botamochi.rcap.data.OfficeManager.getAll().stream()
+                        .filter(o -> o.getPos().asLong() == linkedOfficePosLong)
+                        .findFirst()
+                        .orElse(null);
+            }
+
+            // なければランダムに選択し、BlockEntityに保存
             if (office == null) {
-                player.sendMessage(Text.literal("利用可能なオフィスが見つかりません。"), false);
-                return ActionResult.SUCCESS;
+                office = com.botamochi.rcap.data.OfficeManager.getRandomAvailableOffice();
+                if (office == null) {
+                    player.sendMessage(Text.literal("利用可能なオフィスが見つかりません。"), false);
+                    return ActionResult.SUCCESS;
+                }
+                housingBlockEntity.setLinkedOfficePosLong(office.getPos().asLong());
             }
 
             if (!(world instanceof ServerWorld serverWorld)) {
@@ -59,12 +76,8 @@ public class HousingBlock extends BlockWithEntity {
             }
 
             var railwayData = mtr.data.RailwayData.getInstance(serverWorld);
-            if (railwayData == null) {
-                player.sendMessage(Text.literal("RailwayDataが取得できません。"), false);
-                return ActionResult.SUCCESS;
-            }
-            if (railwayData.railwayDataRouteFinderModule == null) {
-                player.sendMessage(Text.literal("経路検索モジュールが利用できません。"), false);
+            if (railwayData == null || railwayData.railwayDataRouteFinderModule == null) {
+                player.sendMessage(Text.literal("RailwayDataまたは経路検索モジュールが取得できません。"), false);
                 return ActionResult.SUCCESS;
             }
 
@@ -77,17 +90,11 @@ public class HousingBlock extends BlockWithEntity {
             System.out.println("[HousingBlock] findRoute開始 homePos=" + homePos + " officePos=" + officePos);
             player.sendMessage(Text.literal("[HousingBlock] findRoute開始"), false);
 
-            int maxTickTime = 40;
+            int maxTickTime = 400;
 
-            long homePlatformId = RailwayData.getClosePlatformId(railwayData.platforms, railwayData.dataCache, homePos, 1000, -64, 320);
-            long officePlatformId = RailwayData.getClosePlatformId(railwayData.platforms, railwayData.dataCache, officePos, 1000, -64, 320);
-
-            System.out.println("[Debug] railwayData.platforms size: " + railwayData.platforms.size());
-            System.out.println("[Debug] homePos: " + homePos);
-            for (Platform platform : railwayData.platforms) {
-                BlockPos midPos = platform.getMidPos();
-                System.out.println("[Debug] platformId=" + platform.id + ", midPos=" + midPos);
-            }
+            // 住宅とオフィスそれぞれ近くのプラットフォームIDを取得
+            long homePlatformId = RailwayData.getClosePlatformId(railwayData.platforms, railwayData.dataCache, homePos, 1000, 1000, 1000);
+            long officePlatformId = RailwayData.getClosePlatformId(railwayData.platforms, railwayData.dataCache, officePos, 1000, 1000, 1000);
 
             if (homePlatformId == 0L) {
                 player.sendMessage(Text.literal("住宅近辺に有効なプラットフォームが見つかりません。"), false);
@@ -98,16 +105,22 @@ public class HousingBlock extends BlockWithEntity {
                 return ActionResult.SUCCESS;
             }
 
-            Station homestation = railwayData.dataCache.platformIdToStation.get(homePlatformId);
-            Station officestation = railwayData.dataCache.platformIdToStation.get(officePlatformId);
-            System.out.println("homePlatId = " + homePlatformId + ", officePlatId = " + officePlatformId);
-            System.out.println("homeStation = " + homestation + ", officeStation = " + officestation);
+            Station homeStation = railwayData.dataCache.platformIdToStation.get(homePlatformId);
+            Station officeStation = railwayData.dataCache.platformIdToStation.get(officePlatformId);
 
-            railwayData.railwayDataRouteFinderModule.findRoute(homestation.getCenter(), officestation.getCenter(), maxTickTime, (routeFinderDataList, duration) -> {
+            // 既にキャッシュされたルートがあれば使う（HousingBlockEntityにキャッシュ実装があれば）
+            List<Long> cachedRoute = housingBlockEntity.getCachedRoute();
+            if (cachedRoute != null && !cachedRoute.isEmpty()) {
+                // 乗客を直接生成。キャッシュがあれば非同期検索省略
+                spawnPassengerWithRoute(cachedRoute, homePos, newId, name, world);
+                player.sendMessage(Text.literal("キャッシュされたルートで乗客を生成しました。"), false);
+                return ActionResult.SUCCESS;
+            }
+
+            // キャッシュなければ非同期で経路検索
+            railwayData.railwayDataRouteFinderModule.findRoute(homeStation.getCenter(), officeStation.getCenter(), maxTickTime, (routeFinderDataList, duration) -> {
+                System.out.println("== コールバック開始 ==");
                 try {
-                    System.out.println("[HousingBlock] Route callback called, route size: " + (routeFinderDataList == null ? "null" : routeFinderDataList.size()));
-                    player.sendMessage(Text.literal("ルート検索コールバック呼ばれました。"), false);
-
                     if (routeFinderDataList == null || routeFinderDataList.isEmpty()) {
                         player.sendMessage(Text.literal("ルートが見つかりませんでした。"), false);
                         return;
@@ -117,47 +130,50 @@ public class HousingBlock extends BlockWithEntity {
                     for (var data : routeFinderDataList) {
                         Long platId = railwayData.dataCache.blockPosToPlatformId.get(data.pos.asLong());
                         var platform = (platId != null) ? railwayData.dataCache.platformIdMap.get(platId) : null;
-                        if (platform != null) {
-                            platformIdList.add(platform.id);
-                        } else {
-                            platformIdList.add(-1L);
-                        }
+                        platformIdList.add(platform != null ? platform.id : -1L);
                     }
 
-                    // 初期位置設定
-                    double x = homePos.getX() + 0.5;
-                    double y = homePos.getY() + 1.0;
-                    double z = homePos.getZ() + 0.5;
+                    // キャッシュに保存
+                    housingBlockEntity.setCachedRoute(platformIdList);
 
-                    if (!platformIdList.isEmpty() && platformIdList.get(0) != -1L) {
-                        var firstPlatform = railwayData.dataCache.platformIdMap.get(platformIdList.get(0));
-                        if (firstPlatform != null) {
-                            BlockPos platPos = firstPlatform.getMidPos();
-                            x = platPos.getX() + 0.5;
-                            y = platPos.getY();
-                            z = platPos.getZ() + 0.5;
-                        }
-                    }
-
-                    Passenger passenger = new Passenger(newId, name, x, y, z, 0xFFFFFF);
-                    passenger.route = platformIdList;
-                    passenger.routeTargetIndex = 0;
-                    passenger.moveState = Passenger.MoveState.WALKING_TO_PLATFORM;
-
-                    // 非同期スレッドからは直接の追加は避け、追加用キューへ入れるだけにする
-                    PassengerManager.PENDING_ADD_QUEUE.add(passenger);
-                    PassengerManager.save();
-
-                    // サーバー側Tickで処理されるため同期は不要
-                    player.sendMessage(Text.literal("乗客をキューに追加しました。サーバーTickで反映されます。"), false);
+                    spawnPassengerWithRoute(platformIdList, homePos, newId, name, world);
+                    player.sendMessage(Text.literal("新規ルートで乗客を生成しました。"), false);
                 } catch (Exception e) {
                     e.printStackTrace();
                     player.sendMessage(Text.literal("例外が発生しました: " + e.getMessage()), false);
                 }
             });
-
         }
         return ActionResult.SUCCESS;
+    }
+
+    private void spawnPassengerWithRoute(List<Long> platformIdList, BlockPos homePos, long newId, String name, World world) {
+        double x = homePos.getX() + 0.5;
+        double y = homePos.getY() + 1.0;
+        double z = homePos.getZ() + 0.5;
+
+        if (!platformIdList.isEmpty() && platformIdList.get(0) != -1L) {
+            var railwayData = mtr.data.RailwayData.getInstance((ServerWorld) world);
+            if (railwayData != null) {
+                var firstPlatform = railwayData.dataCache.platformIdMap.get(platformIdList.get(0));
+                if (firstPlatform != null) {
+                    BlockPos platPos = firstPlatform.getMidPos();
+                    x = platPos.getX() + 0.5;
+                    y = platPos.getY();
+                    z = platPos.getZ() + 0.5;
+                }
+            }
+        }
+
+        Passenger passenger = new Passenger(newId, name, x, y, z, 0xFFFFFF);
+        passenger.route = platformIdList;
+        passenger.routeTargetIndex = 0;
+        passenger.moveState = Passenger.MoveState.WALKING_TO_PLATFORM;
+
+        synchronized (PassengerManager.PASSENGER_LIST) {
+            PassengerManager.PASSENGER_LIST.add(passenger);
+        }
+        PassengerManager.save();
     }
 
     @Nullable

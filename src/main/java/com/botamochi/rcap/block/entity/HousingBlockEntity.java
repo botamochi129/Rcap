@@ -27,27 +27,86 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHandlerFactory {
+
     private int householdSize = 1;
     private int spawnedToday = 0;
+
+    private int lastSpawnDay = -1;
+
+    // 新規フィールド：ペアのオフィス位置をLongで保存（nullなら未設定）
+    private Long linkedOfficePosLong = null;
+
+    // 新規フィールド：ルート検索結果キャッシュ（nullable）
+    private List<Long> cachedRoute = null;
 
     public HousingBlockEntity(BlockPos pos, BlockState state) {
         super(Rcap.HOUSING_BLOCK_ENTITY, pos, state);
     }
 
-    public int getHouseholdSize() {
-        return householdSize;
-    }
-
+    // householdSize関連は変更なし
+    public int getHouseholdSize() { return householdSize; }
     public void setHouseholdSize(int size) {
         this.householdSize = size;
+        markDirty();
         System.out.println("【保存】householdSize = " + size);
+    }
+
+    // linkedOfficePosLong の getter/setter
+    public Long getLinkedOfficePosLong() { return linkedOfficePosLong; }
+    public void setLinkedOfficePosLong(Long posLong) {
+        this.linkedOfficePosLong = posLong;
         markDirty();
     }
 
-    private int lastSpawnDay = -1; // 現実「日」（0〜365）
+    // cachedRoute の getter/setter
+    public List<Long> getCachedRoute() { return cachedRoute; }
+    public void setCachedRoute(List<Long> route) {
+        this.cachedRoute = route;
+        markDirty();
+    }
+
+    @Override
+    public void writeNbt(NbtCompound nbt) {
+        super.writeNbt(nbt);
+        nbt.putInt("HouseholdSize", householdSize);
+
+        if (linkedOfficePosLong != null) {
+            nbt.putLong("LinkedOfficePos", linkedOfficePosLong);
+        } else {
+            nbt.remove("LinkedOfficePos");
+        }
+
+        if (cachedRoute != null && !cachedRoute.isEmpty()) {
+            long[] routeArray = cachedRoute.stream().mapToLong(Long::longValue).toArray();
+            nbt.putLongArray("CachedRoute", routeArray);
+        } else {
+            nbt.remove("CachedRoute");
+        }
+    }
+
+    @Override
+    public void readNbt(NbtCompound nbt) {
+        super.readNbt(nbt);
+        householdSize = nbt.getInt("HouseholdSize");
+
+        if (nbt.contains("LinkedOfficePos")) {
+            linkedOfficePosLong = nbt.getLong("LinkedOfficePos");
+        } else {
+            linkedOfficePosLong = null;
+        }
+
+        if (nbt.contains("CachedRoute")) {
+            long[] routeArray = nbt.getLongArray("CachedRoute");
+            cachedRoute = new ArrayList<>(routeArray.length);
+            for (long l : routeArray) {
+                cachedRoute.add(l);
+            }
+        } else {
+            cachedRoute = null;
+        }
+    }
 
     public void spawnPassengersIfTime(ServerWorld world, long worldTime) {
-        // 日付管理
         long currentDay = worldTime / 24000L;
         if (lastSpawnDay != currentDay) {
             spawnedToday = 0;
@@ -55,72 +114,93 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
         }
         if (spawnedToday >= householdSize) return;
 
-        OfficeBlockEntity office = OfficeManager.getRandomAvailableOffice();
-        if (office == null) return;
+        // 既にペアのオフィスがいるか取得
+        OfficeBlockEntity office = null;
+        if (linkedOfficePosLong != null) {
+            // 保存されている座標からオフィスを取得
+            office = OfficeManager.getAll().stream()
+                    .filter(o -> o.getPos().asLong() == linkedOfficePosLong)
+                    .findFirst()
+                    .orElse(null);
+        }
+        // ペアがなければ新規に取得して保存
+        if (office == null) {
+            office = OfficeManager.getRandomAvailableOffice();
+            if (office == null) return; // 取得できなければ処理終了
+            setLinkedOfficePosLong(office.getPos().asLong());
+        }
 
-        // RailwayData とルート探索モジュールを取得
         RailwayData railwayData = mtr.data.RailwayData.getInstance(world);
         if (railwayData == null || railwayData.railwayDataRouteFinderModule == null) return;
 
         BlockPos homePos = this.pos;
         BlockPos officePos = office.getPos();
 
-        int maxTickTime = 40;  // 適宜調整
+        int maxTickTime = 40;
 
-        // 非同期ルート検索の呼び出し
+        // ルートキャッシュがあればそれを使う
+        if (cachedRoute != null && !cachedRoute.isEmpty()) {
+            spawnPassengerWithRoute(cachedRoute, homePos, spawnedToday);
+            spawnedToday++;
+            markDirty();
+            return;
+        }
+
+        // キャッシュがなければ検索して結果を保存し、乗客生成
         railwayData.railwayDataRouteFinderModule.findRoute(homePos, officePos, maxTickTime, (routeFinderDataList, duration) -> {
-            if (routeFinderDataList == null || routeFinderDataList.isEmpty()) {
-                // 経路無しまたは失敗時は生成しない（必要なら別途処理）
-                return;
-            }
+            if (routeFinderDataList == null || routeFinderDataList.isEmpty()) return;
 
-            // 取得したルート情報からプラットフォームIDリストを作成
             List<Long> platformIdList = new ArrayList<>();
             for (var data : routeFinderDataList) {
                 var platform = railwayData.dataCache.platformIdMap.get(railwayData.dataCache.blockPosToPlatformId.get(data.pos.asLong()));
                 if (platform != null) {
                     platformIdList.add(platform.id);
                 } else {
-                    platformIdList.add(-1L); // 不明プラットフォームIDは-1など適宜ハンドリング
+                    platformIdList.add(-1L);
                 }
             }
 
-            // 乗客初期位置はルートの最初のプラットフォームか住宅中心付近
-            double startX = homePos.getX() + 0.5;
-            double startY = homePos.getY() + 1.0;
-            double startZ = homePos.getZ() + 0.5;
+            setCachedRoute(platformIdList);
 
-            if (!platformIdList.isEmpty()) {
-                long firstPlatformId = platformIdList.get(0);
-                var platform = railwayData.dataCache.platformIdMap.get(firstPlatformId);
-                if (platform != null) {
-                    BlockPos platPos = platform.getMidPos();
-                    startX = platPos.getX() + 0.5;
-                    startY = platPos.getY();
-                    startZ = platPos.getZ() + 0.5;
-                }
-            }
-
-            Passenger passenger = new Passenger(
-                    System.currentTimeMillis(),
-                    "Passenger-" + spawnedToday,
-                    startX, startY, startZ,
-                    0xFFFFFF
-            );
-
-            passenger.route = platformIdList;
-            passenger.routeTargetIndex = 0;
-            passenger.moveState = Passenger.MoveState.WALKING_TO_PLATFORM;
-
-            // 乗客リスト追加は同期化
-            synchronized (PassengerManager.PASSENGER_LIST) {
-                PassengerManager.PASSENGER_LIST.add(passenger);
-            }
-            PassengerManager.save();
-
+            spawnPassengerWithRoute(platformIdList, homePos, spawnedToday);
             spawnedToday++;
-            this.markDirty();
+            markDirty();
         });
+    }
+
+    private void spawnPassengerWithRoute(List<Long> platformIdList, BlockPos homePos, int seq) {
+        double x = homePos.getX() + 0.5;
+        double y = homePos.getY() + 1.0;
+        double z = homePos.getZ() + 0.5;
+
+        if (!platformIdList.isEmpty() && platformIdList.get(0) != -1L) {
+            var railwayData = mtr.data.RailwayData.getInstance((ServerWorld) this.getWorld());
+            if (railwayData != null) {
+                var firstPlatform = railwayData.dataCache.platformIdMap.get(platformIdList.get(0));
+                if (firstPlatform != null) {
+                    BlockPos platPos = firstPlatform.getMidPos();
+                    x = platPos.getX() + 0.5;
+                    y = platPos.getY();
+                    z = platPos.getZ() + 0.5;
+                }
+            }
+        }
+
+        Passenger passenger = new Passenger(
+                System.currentTimeMillis(),
+                "Passenger-" + seq,
+                x, y, z,
+                0xFFFFFF
+        );
+
+        passenger.route = platformIdList;
+        passenger.routeTargetIndex = 0;
+        passenger.moveState = Passenger.MoveState.WALKING_TO_PLATFORM;
+
+        synchronized (PassengerManager.PASSENGER_LIST) {
+            PassengerManager.PASSENGER_LIST.add(passenger);
+        }
+        PassengerManager.save();
     }
 
     public static List<HousingBlockEntity> getAllHousingBlocks(MinecraftServer server) {
@@ -136,18 +216,6 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
             }
         }
         return result;
-    }
-
-    @Override
-    public void writeNbt(NbtCompound nbt) {
-        super.writeNbt(nbt);
-        nbt.putInt("HouseholdSize", householdSize);
-    }
-
-    @Override
-    public void readNbt(NbtCompound nbt) {
-        super.readNbt(nbt);
-        householdSize = nbt.getInt("HouseholdSize");
     }
 
     @Override
@@ -174,7 +242,7 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
     @Override
     public void markRemoved() {
         super.markRemoved();
-        if (!world.isClient) {
+        if (world != null && !world.isClient) {
             HousingManager.unregisterHousing(pos);
         }
     }
