@@ -25,25 +25,24 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHandlerFactory {
 
     private int householdSize = 1;
     private int spawnedToday = 0;
-
     private int lastSpawnDay = -1;
 
-    // 新規フィールド：ペアのオフィス位置をLongで保存（nullなら未設定）
     private Long linkedOfficePosLong = null;
-
-    // 新規フィールド：ルート検索結果キャッシュ（nullable）
     private List<Long> cachedRoute = null;
+
+    // ★追加★ 最終乗客生成Tick管理（負荷軽減）
+    private long lastSpawnTick = -1L;
 
     public HousingBlockEntity(BlockPos pos, BlockState state) {
         super(Rcap.HOUSING_BLOCK_ENTITY, pos, state);
     }
 
-    // householdSize関連は変更なし
     public int getHouseholdSize() { return householdSize; }
     public void setHouseholdSize(int size) {
         this.householdSize = size;
@@ -51,14 +50,12 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
         System.out.println("【保存】householdSize = " + size);
     }
 
-    // linkedOfficePosLong の getter/setter
     public Long getLinkedOfficePosLong() { return linkedOfficePosLong; }
     public void setLinkedOfficePosLong(Long posLong) {
         this.linkedOfficePosLong = posLong;
         markDirty();
     }
 
-    // cachedRoute の getter/setter
     public List<Long> getCachedRoute() { return cachedRoute; }
     public void setCachedRoute(List<Long> route) {
         this.cachedRoute = route;
@@ -114,23 +111,40 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
         }
         if (spawnedToday >= householdSize) return;
 
-        // 既にペアのオフィスがいるか取得
+        long currentTick = world.getTime();
+
+        // ★ 1：経路検索呼び出し間隔制限（例:最低100tick=約5秒の間隔）
+        final int MIN_ROUTE_SEARCH_INTERVAL_TICKS = 100;
+        if (lastSpawnTick >= 0 && currentTick - lastSpawnTick < MIN_ROUTE_SEARCH_INTERVAL_TICKS) return;
+        lastSpawnTick = currentTick;
+
+        // ★ 2：フォールバック乗客最大数制限（例:最大3体まで）
+        int fallbackCount = 0;
+        synchronized (PassengerManager.PASSENGER_LIST) {
+            for (Passenger p : PassengerManager.PASSENGER_LIST) {
+                if (p.name.startsWith("QueueFallback")) fallbackCount++;
+            }
+        }
+        final int MAX_FALLBACK_PASSENGERS = 3;
+        if (fallbackCount >= MAX_FALLBACK_PASSENGERS) {
+            // フォールバック乗客が多すぎる場合は生成抑制
+            return;
+        }
+
         OfficeBlockEntity office = null;
         if (linkedOfficePosLong != null) {
-            // 保存されている座標からオフィスを取得
             office = OfficeManager.getAll().stream()
                     .filter(o -> o.getPos().asLong() == linkedOfficePosLong)
                     .findFirst()
                     .orElse(null);
         }
-        // ペアがなければ新規に取得して保存
         if (office == null) {
             office = OfficeManager.getRandomAvailableOffice();
-            if (office == null) return; // 取得できなければ処理終了
+            if (office == null) return;
             setLinkedOfficePosLong(office.getPos().asLong());
         }
 
-        RailwayData railwayData = mtr.data.RailwayData.getInstance(world);
+        RailwayData railwayData = RailwayData.getInstance(world);
         if (railwayData == null || railwayData.railwayDataRouteFinderModule == null) return;
 
         BlockPos homePos = this.pos;
@@ -138,7 +152,6 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
 
         int maxTickTime = 40;
 
-        // ルートキャッシュがあればそれを使う
         if (cachedRoute != null && !cachedRoute.isEmpty()) {
             spawnPassengerWithRoute(cachedRoute, homePos, spawnedToday);
             spawnedToday++;
@@ -146,18 +159,13 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
             return;
         }
 
-        // キャッシュがなければ検索して結果を保存し、乗客生成
-        railwayData.railwayDataRouteFinderModule.findRoute(homePos, officePos, maxTickTime, (routeFinderDataList, duration) -> {
+        boolean queued = railwayData.railwayDataRouteFinderModule.findRoute(homePos, officePos, maxTickTime, (routeFinderDataList, duration) -> {
             if (routeFinderDataList == null || routeFinderDataList.isEmpty()) return;
 
             List<Long> platformIdList = new ArrayList<>();
             for (var data : routeFinderDataList) {
-                var platform = railwayData.dataCache.platformIdMap.get(railwayData.dataCache.blockPosToPlatformId.get(data.pos.asLong()));
-                if (platform != null) {
-                    platformIdList.add(platform.id);
-                } else {
-                    platformIdList.add(-1L);
-                }
+                Long platformId = railwayData.dataCache.blockPosToPlatformId.get(data.pos.asLong());
+                platformIdList.add(platformId != null ? platformId : -1L);
             }
 
             setCachedRoute(platformIdList);
@@ -166,6 +174,29 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
             spawnedToday++;
             markDirty();
         });
+
+        if (!queued) {
+            double x = homePos.getX() + 0.5;
+            double y = homePos.getY() + 1.0;
+            double z = homePos.getZ() + 0.5;
+
+            List<Long> fallbackRoute = new ArrayList<>();
+            if (railwayData != null && railwayData.dataCache.platformIdMap != null && !railwayData.dataCache.platformIdMap.isEmpty()) {
+                Long firstPlatformId = railwayData.dataCache.platformIdMap.keySet().iterator().next();
+                fallbackRoute.add(firstPlatformId);
+            }
+
+            Passenger fallbackPassenger = new Passenger(System.currentTimeMillis(), "QueueFallback", x, y, z, 0xFFFFFF);
+            fallbackPassenger.route = fallbackRoute;
+            fallbackPassenger.routeTargetIndex = 0;
+            fallbackPassenger.moveState = Passenger.MoveState.WALKING_TO_PLATFORM;
+
+            PassengerManager.PENDING_ADD_QUEUE.offer(fallbackPassenger);
+            PassengerManager.save();
+
+            spawnedToday++;
+            markDirty();
+        }
     }
 
     private void spawnPassengerWithRoute(List<Long> platformIdList, BlockPos homePos, int seq) {
@@ -174,7 +205,7 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
         double z = homePos.getZ() + 0.5;
 
         if (!platformIdList.isEmpty() && platformIdList.get(0) != -1L) {
-            var railwayData = mtr.data.RailwayData.getInstance((ServerWorld) this.getWorld());
+            var railwayData = RailwayData.getInstance((ServerWorld) this.getWorld());
             if (railwayData != null) {
                 var firstPlatform = railwayData.dataCache.platformIdMap.get(platformIdList.get(0));
                 if (firstPlatform != null) {
@@ -232,11 +263,11 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
     @Override
     public void writeScreenOpeningData(ServerPlayerEntity player, PacketByteBuf buf) {
         buf.writeBlockPos(this.getPos());
-        buf.writeInt(this.householdSize); // ← これを追加
+        buf.writeInt(this.householdSize);
     }
 
     public static void tick(World world, BlockPos pos, BlockState state, HousingBlockEntity blockEntity) {
-        HousingManager.registerHousing(pos); // 一度だけ登録してもOK（条件付き）
+        HousingManager.registerHousing(pos);
     }
 
     @Override

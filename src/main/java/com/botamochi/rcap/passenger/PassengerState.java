@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class PassengerState extends PersistentState {
-    public final List<Passenger> passengerList = new ArrayList<>();
+    public List<Passenger> passengerList = new ArrayList<>();
     public static final String KEY = "rcap_passengers";
 
     public PassengerState() {}

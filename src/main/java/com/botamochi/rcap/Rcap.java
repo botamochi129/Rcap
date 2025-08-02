@@ -113,19 +113,36 @@ public class Rcap implements ModInitializer {
             for (ServerWorld w : server.getWorlds()) {
                 long time = w.getTime();
 
-                // 住宅から乗客スポーン（既存のコード）
+                // 住宅から乗客スポーン処理
                 for (HousingBlockEntity house : HousingManager.getAll(w)) {
                     house.spawnPassengersIfTime(w, time);
                 }
 
+                // 乗客リストは同期化
                 synchronized (PassengerManager.PASSENGER_LIST) {
-                    // キューからの追加反映
+                    // 不正プラットフォームをターゲットにしててIDLEの乗客を削除
+                    PassengerManager.PASSENGER_LIST.removeIf(passenger -> {
+                        if (passenger.moveState != Passenger.MoveState.IDLE) return false;
+                        if (passenger.route == null || passenger.route.isEmpty()) return true;
+
+                        RailwayData railwayData = RailwayData.getInstance(w);
+                        if (railwayData == null) return false;
+
+                        Long targetPid = null;
+                        if (passenger.routeTargetIndex >= 0 && passenger.routeTargetIndex < passenger.route.size()) {
+                            targetPid = passenger.route.get(passenger.routeTargetIndex);
+                        } else {
+                            // 範囲外なら削除
+                            return true;
+                        }
+                        return !railwayData.dataCache.platformIdMap.containsKey(targetPid);
+                    });
+
+                    // 追加キュー反映や乗客更新処理（従来通り）
                     Passenger p;
                     while ((p = PassengerManager.PENDING_ADD_QUEUE.poll()) != null) {
                         PassengerManager.PASSENGER_LIST.add(p);
                     }
-
-                    // 乗客更新ループ
                     for (Passenger passenger : PassengerManager.PASSENGER_LIST) {
                         PassengerMovement.updatePassenger(w, passenger);
                     }
