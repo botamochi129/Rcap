@@ -1,5 +1,7 @@
 package com.botamochi.rcap.block;
 
+import com.botamochi.rcap.Rcap;
+import com.botamochi.rcap.block.entity.OfficeBlockEntity;
 import com.botamochi.rcap.block.entity.RidingPosBlockEntity;
 import com.botamochi.rcap.network.RcapServerPackets;
 import com.botamochi.rcap.network.ServerNetworking;
@@ -7,6 +9,8 @@ import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockWithEntity;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.entity.BlockEntityTicker;
+import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.ActionResult;
@@ -36,6 +40,12 @@ public class RidingPosBlock extends BlockWithEntity {
             }
         }
         return ActionResult.SUCCESS;
+    }
+
+    @Override
+    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state,
+                                                                  BlockEntityType<T> type) {
+        return world.isClient() ? null : checkType(type, Rcap.RIDING_POS_BLOCK_ENTITY, RidingPosBlockEntity::tick);
     }
 
     @Override

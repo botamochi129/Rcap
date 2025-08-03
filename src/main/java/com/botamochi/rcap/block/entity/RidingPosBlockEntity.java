@@ -1,6 +1,8 @@
 package com.botamochi.rcap.block.entity;
 
 import com.botamochi.rcap.Rcap;
+import com.botamochi.rcap.data.HousingManager;
+import com.botamochi.rcap.data.RidingPosManager;
 import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 import net.minecraft.block.Block;
 import net.minecraft.block.entity.BlockEntity;
@@ -13,6 +15,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.block.BlockState;
+import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 public class RidingPosBlockEntity extends BlockEntity {
@@ -45,6 +48,18 @@ public class RidingPosBlockEntity extends BlockEntity {
         super.readNbt(nbt);
         if (nbt.contains("PlatformId")) {
             this.platformId = nbt.getLong("PlatformId");
+        }
+    }
+
+    public static void tick(World world, BlockPos pos, BlockState state, RidingPosBlockEntity blockEntity) {
+        RidingPosManager.registerRidingPos(blockEntity);
+    }
+
+    @Override
+    public void markRemoved() {
+        super.markRemoved();
+        if (world != null && !world.isClient) {
+            RidingPosManager.unregisterRidingPos(this);
         }
     }
 }

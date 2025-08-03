@@ -37,10 +37,12 @@ public class Passenger {
             new Identifier("rcap", "textures/entity/passenger/custom_skin.png"),
             new Identifier("rcap", "textures/entity/passenger/custom_skin_2.png")
     };
+    // 新規追加：ワールドID（Dimensionの名前など）
+    public String worldId;
 
     // --- コンストラクタ・NBT変換は既存コード＋追加分 ---
 
-    public Passenger(long id, String name, double x, double y, double z, int color) {
+    public Passenger(long id, String name, double x, double y, double z, int color, String worldId) {
         this.id = id;
         this.name = name;
         this.x = x;
@@ -48,6 +50,7 @@ public class Passenger {
         this.z = z;
         this.color = color;
         this.skinIndex = (int) (Math.random() * SKINS.length);
+        this.worldId = worldId;
     }
 
     /** NBTシリアライズ */
@@ -59,6 +62,7 @@ public class Passenger {
         tag.putDouble("y", y);
         tag.putDouble("z", z);
         tag.putInt("color", color);
+        tag.putString("worldId", worldId); // 追加
 
         // ルート保存
         NbtList listTag = new NbtList();
@@ -83,7 +87,8 @@ public class Passenger {
                 tag.getDouble("x"),
                 tag.getDouble("y"),
                 tag.getDouble("z"),
-                tag.getInt("color")
+                tag.getInt("color"),
+                tag.contains("worldId") ? tag.getString("worldId") : "minecraft:overworld"
         );
 
         p.route.clear();

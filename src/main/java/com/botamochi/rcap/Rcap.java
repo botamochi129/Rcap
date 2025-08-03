@@ -143,8 +143,12 @@ public class Rcap implements ModInitializer {
                     while ((p = PassengerManager.PENDING_ADD_QUEUE.poll()) != null) {
                         PassengerManager.PASSENGER_LIST.add(p);
                     }
+
                     for (Passenger passenger : PassengerManager.PASSENGER_LIST) {
-                        PassengerMovement.updatePassenger(w, passenger);
+                        // 乗客のワールドIDと現在のwのIDを比較
+                        if (passenger.worldId.equals(w.getRegistryKey().getValue().toString())) {
+                            PassengerMovement.updatePassenger(w, passenger);
+                        }
                     }
                 }
             }

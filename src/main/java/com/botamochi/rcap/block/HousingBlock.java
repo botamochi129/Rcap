@@ -79,8 +79,9 @@ public class HousingBlock extends BlockWithEntity {
         double y = homePos.getY() + 1.0;
         double z = homePos.getZ() + 0.5;
 
+        String worldId = "minecraft:overworld";
         if (!platformIdList.isEmpty() && platformIdList.get(0) != -1L) {
-            var railwayData = RailwayData.getInstance((ServerWorld) world);
+            var railwayData = RailwayData.getInstance(world);
             if (railwayData != null) {
                 var firstPlatform = railwayData.dataCache.platformIdMap.get(platformIdList.get(0));
                 if (firstPlatform != null) {
@@ -90,9 +91,10 @@ public class HousingBlock extends BlockWithEntity {
                     z = platPos.getZ() + 0.5;
                 }
             }
+            worldId = world.getRegistryKey().getValue().toString(); // ワールドID文字列
         }
 
-        Passenger passenger = new Passenger(newId, name, x, y, z, 0xFFFFFF);
+        Passenger passenger = new Passenger(newId, name, x, y, z, 0xFFFFFF, worldId);
         passenger.route = platformIdList;
         passenger.routeTargetIndex = 0;
         passenger.moveState = Passenger.MoveState.WALKING_TO_PLATFORM;

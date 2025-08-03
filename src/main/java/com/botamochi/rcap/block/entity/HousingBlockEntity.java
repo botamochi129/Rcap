@@ -123,6 +123,12 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
             Platform officePlatform = railwayData.dataCache.platformIdMap.get(officePid);
             BlockPos officePlatformPos = (officePlatform != null) ? officePlatform.getMidPos() : null;
 
+            System.out.println("[HousingBlockEntity] 住宅 pos: " + this.pos + ", homePid: " + homePid);
+            System.out.println("[HousingBlockEntity] オフィス pos: " + officeBlockPos + ", officePid: " + officePid);
+            System.out.println("platformIdMap keys: " + railwayData.dataCache.platformIdMap.keySet());
+            System.out.println("Contains homePid? " + railwayData.dataCache.platformIdMap.containsKey(homePid));
+            System.out.println("Contains officePid? " + railwayData.dataCache.platformIdMap.containsKey(officePid));
+
             if (homePlatformPos == null || officePlatformPos == null) {
                 System.out.println("[HousingBlockEntity] 有効なプラットフォームが見つからず経路検索できません, homePid=" + homePid + ", officePid=" + officePid);
                 this.cachedRoute = null;
@@ -143,8 +149,9 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
                             }
                             List<Long> platformIdList = new ArrayList<>();
                             for (var data : routeFinderDataList) {
+                                System.out.println("routeFinderData pos=" + data.pos + ", duration=" + data.duration);
                                 Long pid = railwayData.dataCache.blockPosToPlatformId.get(data.pos.asLong());
-                                if (pid != null && pid >= 0) platformIdList.add(pid);
+                                if (pid != null || pid != 0) platformIdList.add(pid);
                             }
                             if (!platformIdList.isEmpty()) {
                                 setCachedRoute(platformIdList);
@@ -156,6 +163,7 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
                             }
                         }
                 );
+                System.out.println("✅ findRoute() result: " + queued);
                 if (!queued) {
                     System.out.println("[HousingBlockEntity] findRoute呼び出し失敗：検索キューが満杯の可能性");
                 } else {
@@ -194,21 +202,19 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
 
     private void spawnPassengerWithRoute(List<Long> platformIdList, BlockPos homePos, int seq) {
         System.out.println("[spawnPassengerWithRoute] called seq=" + seq + ", platformIds=" + platformIdList);
-        double x = homePos.getX() + 0.5, y = homePos.getY() + 1.0, z = homePos.getZ() + 0.5;
+        String worldId = "minecraft:overworld";
         if (!platformIdList.isEmpty() && platformIdList.get(0) != -1L) {
             var world = this.getWorld();
             if (world instanceof ServerWorld serverWorld) {
-                var railwayData = RailwayData.getInstance(serverWorld);
-                var firstPlatform = railwayData.dataCache.platformIdMap.get(platformIdList.get(0));
-                if (firstPlatform != null) {
-                    BlockPos platPos = firstPlatform.getMidPos();
-                    x = platPos.getX() + 0.5;
-                    y = platPos.getY();
-                    z = platPos.getZ() + 0.5;
-                }
+                worldId = serverWorld.getRegistryKey().getValue().toString(); // ワールドID文字列
             }
         }
-        Passenger passenger = new Passenger(System.currentTimeMillis(), "Passenger-" + seq, x, y, z, 0xFFFFFF);
+
+        double x = homePos.getX() + 0.5;
+        double y = homePos.getY() + 1.0;  // 住宅の高さや高さ調整は適宜
+        double z = homePos.getZ() + 0.5;
+
+        Passenger passenger = new Passenger(System.currentTimeMillis(), "Passenger-" + seq, x, y, z, 0xFFFFFF, worldId);
         passenger.route = platformIdList;
         passenger.routeTargetIndex = 0;
         passenger.moveState = Passenger.MoveState.WALKING_TO_PLATFORM;
