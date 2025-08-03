@@ -111,7 +111,7 @@ public class Rcap implements ModInitializer {
 
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             for (ServerWorld w : server.getWorlds()) {
-                long time = w.getTime();
+                long time = w.getTimeOfDay();
 
                 // 住宅から乗客スポーン処理
                 for (HousingBlockEntity house : HousingManager.getAll(w)) {

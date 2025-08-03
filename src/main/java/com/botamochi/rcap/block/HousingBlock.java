@@ -45,22 +45,15 @@ public class HousingBlock extends BlockWithEntity {
     public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
         if (!world.isClient) {
             BlockEntity be = world.getBlockEntity(pos);
-            if (!(be instanceof HousingBlockEntity housingBlockEntity)) {
-                return ActionResult.SUCCESS;
-            }
+            if (!(be instanceof HousingBlockEntity housingBlockEntity)) return ActionResult.SUCCESS;
 
             player.openHandledScreen(housingBlockEntity);
 
-            // ランダムオフィス取得
             OfficeBlockEntity office = null;
-            Long linkedOfficePosLong = housingBlockEntity.getLinkedOfficePosLong();
-            if (linkedOfficePosLong != null) {
-                office = OfficeManager.getAll().stream()
-                        .filter(o -> o.getPos().asLong() == linkedOfficePosLong)
-                        .findFirst()
-                        .orElse(null);
+            Long linkedOffice = housingBlockEntity.getLinkedOfficePosLong();
+            if (linkedOffice != null) {
+                office = OfficeManager.getAll().stream().filter(o -> o.getPos().asLong() == linkedOffice).findFirst().orElse(null);
             }
-
             if (office == null) {
                 office = OfficeManager.getRandomAvailableOffice();
                 if (office == null) {
@@ -68,110 +61,13 @@ public class HousingBlock extends BlockWithEntity {
                     return ActionResult.SUCCESS;
                 }
                 housingBlockEntity.setLinkedOfficePosLong(office.getPos().asLong());
+                // ここで経路キャッシュが生成される
+                player.sendMessage(Text.literal("オフィス紐付け＆経路再計算を行いました。しばらくしてから乗客が出現します。"), false);
+            } else {
+                // すでにオフィスが設定されている場合、何もしない
             }
 
-            if (!(world instanceof ServerWorld serverWorld)) {
-                player.sendMessage(Text.literal("サーバーワールドでのみ動作します。"), false);
-                return ActionResult.SUCCESS;
-            }
-
-            var railwayData = RailwayData.getInstance(serverWorld);
-            if (railwayData == null || railwayData.railwayDataRouteFinderModule == null) {
-                player.sendMessage(Text.literal("RailwayDataまたは経路検索モジュールが取得できません。"), false);
-                return ActionResult.SUCCESS;
-            }
-
-            BlockPos homePos = pos;
-            BlockPos officePos = office.getPos();
-
-            player.sendMessage(Text.literal("[HousingBlock] 乗客生成テスト開始"), false);
-            player.sendMessage(Text.literal("[HousingBlock] 経路検索を開始します…"), false);
-
-            List<Long> cachedRoute = housingBlockEntity.getCachedRoute();
-
-            if (cachedRoute != null && !cachedRoute.isEmpty()) {
-                long newId = System.currentTimeMillis();
-                spawnPassengerWithRoute(cachedRoute, homePos, newId, "CachedPassenger" + newId, world);
-                player.sendMessage(Text.literal("[HousingBlock] キャッシュされたルートで乗客を生成しました。"), false);
-                player.sendMessage(Text.literal("[HousingBlock] 現在の乗客数: " + PassengerManager.PASSENGER_LIST.size()), false);
-                return ActionResult.SUCCESS;
-            }
-
-            boolean queued = railwayData.railwayDataRouteFinderModule.findRoute(
-                    homePos,
-                    officePos,
-                    40,
-                    (List<mtr.data.RailwayDataRouteFinderModule.RouteFinderData> dataList, Integer duration) -> {
-                        try {
-                            player.sendMessage(Text.literal("[HousingBlock] 経路検索コールバック呼び出し"), false);
-
-                            if (dataList == null) {
-                                player.sendMessage(Text.literal("[HousingBlock] 経路検索結果: null"), false);
-                                return;
-                            }
-                            player.sendMessage(Text.literal("[HousingBlock] 経路検索結果数: " + dataList.size()), false);
-
-                            List<Long> platformIds = dataList.stream()
-                                    .map(data -> railwayData.dataCache.blockPosToPlatformId.get(data.pos.asLong()))
-                                    .filter(pid -> pid != null && pid >= 0)
-                                    .collect(Collectors.toList());
-
-                            player.sendMessage(Text.literal("[HousingBlock] プラットフォームID数: " + platformIds.size() + " 内容: " + platformIds), false);
-
-                            if (platformIds.isEmpty()) {
-                                double x = homePos.getX() + 0.5;
-                                double y = homePos.getY() + 1.0;
-                                double z = homePos.getZ() + 0.5;
-                                Passenger fb = new Passenger(System.currentTimeMillis(), "FallbackPassenger", x, y, z, 0xFFFFFF);
-                                fb.moveState = Passenger.MoveState.WALKING_TO_PLATFORM;
-                                synchronized (PassengerManager.PASSENGER_LIST) {
-                                    PassengerManager.PASSENGER_LIST.add(fb);
-                                }
-                                PassengerManager.save();
-                                player.sendMessage(Text.literal("[HousingBlock] ルートなしフォールバック乗客生成。乗客数: " + PassengerManager.PASSENGER_LIST.size()), false);
-                            } else {
-                                housingBlockEntity.setCachedRoute(platformIds);
-                                long newId = System.currentTimeMillis();
-                                spawnPassengerWithRoute(platformIds, homePos, newId, "Passenger" + newId, world);
-                                player.sendMessage(Text.literal("[HousingBlock] 経路検索完了、乗客生成 (所要 " + duration + " ms)。乗客数：" + PassengerManager.PASSENGER_LIST.size()), false);
-                            }
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                            player.sendMessage(Text.literal("[HousingBlock] 経路検索例外: " + e.getMessage()), false);
-                        }
-                    }
-            );
-            player.sendMessage(Text.literal("[HousingBlock] findRoute queued: " + queued), false);
-
-            if (!queued) {
-                player.sendMessage(Text.literal("[HousingBlock] 経路検索キューが満杯のため即フォールバック生成します。"), false);
-
-                double x = homePos.getX() + 0.5;
-                double y = homePos.getY() + 1.0;
-                double z = homePos.getZ() + 0.5;
-
-                List<Long> fallbackRoute = new ArrayList<>();
-                if (railwayData != null && railwayData.dataCache.platformIdMap != null && !railwayData.dataCache.platformIdMap.isEmpty()) {
-                    // 有効なプラットフォームIDの集合から最初の１つを取得
-                    long validPlatformId = railwayData.dataCache.platformIdMap.keySet().iterator().next();
-                    fallbackRoute.add(validPlatformId);
-                } else {
-                    // 万一なければ -1L など無効値を避けるかフォールバック自体を控える
-                    // ここでの例外処理やログ出力も検討
-                }
-
-                Passenger fallbackPassenger = new Passenger(System.currentTimeMillis(), "QueueFallback", x, y, z, 0xFFFFFF);
-                fallbackPassenger.route = fallbackRoute;
-                fallbackPassenger.routeTargetIndex = 0;
-                fallbackPassenger.moveState = Passenger.MoveState.WALKING_TO_PLATFORM;
-
-                synchronized (PassengerManager.PASSENGER_LIST) {
-                    PassengerManager.PASSENGER_LIST.add(fallbackPassenger);
-                }
-                PassengerManager.save();
-
-                player.sendMessage(Text.literal("[HousingBlock] フォールバック乗客を生成しました。現在の乗客数：" + PassengerManager.PASSENGER_LIST.size()), false);
-            }
+            // 再計算要求・乗客強制生成等はここではせず、経路キャッシュが存在する場合のみspawnPassengersIfTimeで動作
 
             return ActionResult.SUCCESS;
         }
