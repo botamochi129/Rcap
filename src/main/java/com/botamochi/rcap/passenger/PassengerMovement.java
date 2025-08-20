@@ -1,7 +1,6 @@
 package com.botamochi.rcap.passenger;
 
 import com.botamochi.rcap.data.RidingPosManager;
-import com.botamochi.rcap.network.RcapServerPackets;
 import mtr.data.Platform;
 import mtr.data.RailwayData;
 import mtr.data.ScheduleEntry;
@@ -63,17 +62,24 @@ public class PassengerMovement {
         Vec3d currentPos = new Vec3d(passenger.x, passenger.y, passenger.z);
         double distanceSq = currentPos.squaredDistanceTo(targetPos);
 
-        final double speed = 0.25;
+        final double walkSpeed = 0.25;
 
         switch (passenger.moveState) {
             case WALKING_TO_PLATFORM:
-                // 最終到着（最後の route 要素）に到達したら即時削除＆同期する（ユーザー要求）
+                // If this is the final route platform, on arrival switch to walking to office instead of immediate removal
                 if (passenger.routeTargetIndex == route.size() - 1 && distanceSq < 0.25) {
-                    LOGGER.info("[Passenger] {} reached final platform (index {}). Removing and broadcasting.", passenger.id, passenger.routeTargetIndex);
-                    PassengerManager.PASSENGER_LIST.remove(passenger);
-                    PassengerManager.save();
-                    MinecraftServer server = world.getServer();
-                    if (server != null) PassengerManager.broadcastToAllPlayers(server);
+                    LOGGER.info("[Passenger] {} reached final platform (index {}). Switching to WALKING_TO_DESTINATION.", passenger.id, passenger.routeTargetIndex);
+                    // If destination coords are known, go walk there; otherwise remove as fallback
+                    if (!Double.isNaN(passenger.destinationX) && !Double.isNaN(passenger.destinationY) && !Double.isNaN(passenger.destinationZ)) {
+                        passenger.moveState = Passenger.MoveState.WALKING_TO_DESTINATION;
+                        // keep destination fields as-is
+                    } else {
+                        LOGGER.info("[Passenger] {} destination unknown -> removing passenger", passenger.id);
+                        PassengerManager.PASSENGER_LIST.remove(passenger);
+                        PassengerManager.save();
+                        MinecraftServer server = world.getServer();
+                        if (server != null) PassengerManager.broadcastToAllPlayers(server);
+                    }
                     return;
                 }
 
@@ -81,7 +87,7 @@ public class PassengerMovement {
                     passenger.moveState = Passenger.MoveState.WAITING_FOR_TRAIN;
                     LOGGER.debug("[Passenger] {} reached platform {} -> WAITING", passenger.id, targetPlatformId);
                 } else {
-                    Vec3d dir = targetPos.subtract(currentPos).normalize().multiply(speed);
+                    Vec3d dir = targetPos.subtract(currentPos).normalize().multiply(walkSpeed);
                     passenger.x += dir.x;
                     passenger.y += dir.y;
                     passenger.z += dir.z;
@@ -144,7 +150,7 @@ public class PassengerMovement {
                                 }
                             }
                             if (best != Long.MAX_VALUE) estimatedAlightTime = best;
-                            // alight 座標（あれば）を設定（フォールバックで later）
+                            // alight 座標（あれば）を設定
                             if (alightPos != null) {
                                 passenger.alightX = alightPos.x;
                                 passenger.alightY = alightPos.y;
@@ -184,18 +190,51 @@ public class PassengerMovement {
                         passenger.alightX = passenger.alightY = passenger.alightZ = Double.NaN;
                         LOGGER.debug("[Passenger] {} alighted and will WALK to next platform (index {}).", passenger.id, passenger.routeTargetIndex);
                     } else {
-                        // 最終到着: 削除して保存＆全クライアントに同期（描画消去）
-                        LOGGER.info("[Passenger] {} reached final destination -> removing passenger", passenger.id);
-                        PassengerManager.PASSENGER_LIST.remove(passenger);
-                        PassengerManager.save();
-                        MinecraftServer server = world.getServer();
-                        if (server != null) PassengerManager.broadcastToAllPlayers(server);
+                        // 最終到着: ここではプラットフォームに到着した後 WALKING_TO_DESTINATION に遷移する処理を行う
+                        LOGGER.info("[Passenger] {} alight at final platform -> switch to WALKING_TO_DESTINATION", passenger.id);
+                        if (!Double.isNaN(passenger.destinationX) && !Double.isNaN(passenger.destinationY) && !Double.isNaN(passenger.destinationZ)) {
+                            passenger.moveState = Passenger.MoveState.WALKING_TO_DESTINATION;
+                            // Keep the destination fields
+                        } else {
+                            // destination unknown -> remove immediately
+                            LOGGER.info("[Passenger] {} destination unknown at final alight -> removing", passenger.id);
+                            PassengerManager.PASSENGER_LIST.remove(passenger);
+                            PassengerManager.save();
+                            MinecraftServer server = world.getServer();
+                            if (server != null) PassengerManager.broadcastToAllPlayers(server);
+                        }
                     }
                 }
                 break;
 
             case WALKING_TO_DESTINATION:
-                // 将来的にオフィスの座標へ歩かせるならここに実装
+                // Walk towards passenger.destinationX/Y/Z
+                if (Double.isNaN(passenger.destinationX) || Double.isNaN(passenger.destinationY) || Double.isNaN(passenger.destinationZ)) {
+                    // No destination -> remove as fallback
+                    LOGGER.info("[Passenger] {} walking to destination but destination unknown -> removing", passenger.id);
+                    PassengerManager.PASSENGER_LIST.remove(passenger);
+                    PassengerManager.save();
+                    MinecraftServer server = world.getServer();
+                    if (server != null) PassengerManager.broadcastToAllPlayers(server);
+                    return;
+                }
+                Vec3d dest = new Vec3d(passenger.destinationX, passenger.destinationY, passenger.destinationZ);
+                Vec3d curPos = new Vec3d(passenger.x, passenger.y, passenger.z);
+                double dist2 = curPos.squaredDistanceTo(dest);
+                if (dist2 < 0.25) {
+                    // Reached office: remove and persist
+                    LOGGER.info("[Passenger] {} reached destination office -> removing", passenger.id);
+                    PassengerManager.PASSENGER_LIST.remove(passenger);
+                    PassengerManager.save();
+                    MinecraftServer server = world.getServer();
+                    if (server != null) PassengerManager.broadcastToAllPlayers(server);
+                    return;
+                } else {
+                    Vec3d direction = dest.subtract(curPos).normalize().multiply(walkSpeed);
+                    passenger.x += direction.x;
+                    passenger.y += direction.y;
+                    passenger.z += direction.z;
+                }
                 break;
 
             default:

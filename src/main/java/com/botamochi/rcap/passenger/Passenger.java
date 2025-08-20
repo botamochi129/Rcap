@@ -40,24 +40,29 @@ public class Passenger {
     // ワールドID（Dimensionの名前など）
     public String worldId;
 
-    // クライアントが利用するための（オプショナル）列車参照ID（サーバで特定できればセットされるが、MTRでは基本取得不可）
+    // クライアントが利用するための（オプショナル）列車参照ID（クライアント側で埋める）
     public Long currentTrainId = null;
+    // クライアントで検出した「何号車か」を保持する（サーバ側では基本的に決められないのでクライアントのみで保持）
+    public int currentCarIndex = -1;
 
     // --- 追加フィールド（サーバがスケジュール情報からセットする） ---
     // 乗車開始推定時刻（millis）。
     public long boardingTimeMillis = -1L;
     // 降車推定時刻（millis）。
     public long alightTimeMillis = -1L;
-    // 乗車したプラットフォームID（板のID）
+    // 乗車したプラットフォームID
     public long boardingPlatformId = -1L;
     // 降車予定のプラットフォームID
     public long alightingPlatformId = -1L;
-    // スケジュールから得られた routeId（スケジュールの routeId を保持しておく）
+    // スケジュールから得られた routeId
     public long scheduledRouteId = -1L;
 
-    // 追加: サーバが計算したプラットフォーム座標（クライアントが platformId を持っていない場合のフォールバック）
+    // 追加: サーバが計算したプラットフォーム／オフィス座標（クライアントが platformId を持っていない場合のフォールバック）
     public double boardingX = Double.NaN, boardingY = Double.NaN, boardingZ = Double.NaN;
     public double alightX = Double.NaN, alightY = Double.NaN, alightZ = Double.NaN;
+
+    // 追加: 最終目的地（オフィス）座標。WALKING_TO_DESTINATION で使用
+    public double destinationX = Double.NaN, destinationY = Double.NaN, destinationZ = Double.NaN;
 
     public Passenger(long id, String name, double x, double y, double z, int color, String worldId) {
         this.id = id;
@@ -106,6 +111,13 @@ public class Passenger {
         tag.putDouble("alightX", alightX);
         tag.putDouble("alightY", alightY);
         tag.putDouble("alightZ", alightZ);
+
+        // 目的地（オフィス）座標保存
+        tag.putDouble("destinationX", destinationX);
+        tag.putDouble("destinationY", destinationY);
+        tag.putDouble("destinationZ", destinationZ);
+
+        // currentCarIndex はクライアントのみで検出・使用する想定のため NBT に含めない（必要なら追加可能）
 
         return tag;
     }
@@ -156,8 +168,13 @@ public class Passenger {
         p.alightY = tag.contains("alightY") ? tag.getDouble("alightY") : Double.NaN;
         p.alightZ = tag.contains("alightZ") ? tag.getDouble("alightZ") : Double.NaN;
 
-        // currentTrainId はクライアント側の候補決定で使うため NBT では保持しない（サーバ側で現実に判明しているなら追加可能）
+        p.destinationX = tag.contains("destinationX") ? tag.getDouble("destinationX") : Double.NaN;
+        p.destinationY = tag.contains("destinationY") ? tag.getDouble("destinationY") : Double.NaN;
+        p.destinationZ = tag.contains("destinationZ") ? tag.getDouble("destinationZ") : Double.NaN;
+
+        // currentTrainId / currentCarIndex はクライアント側で検出・埋めるため NBT では保持しない
         p.currentTrainId = null;
+        p.currentCarIndex = -1;
 
         return p;
     }

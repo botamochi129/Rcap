@@ -99,6 +99,12 @@ public class HousingBlock extends BlockWithEntity {
         passenger.routeTargetIndex = 0;
         passenger.moveState = Passenger.MoveState.WALKING_TO_PLATFORM;
 
+        // set destination if linked office exists (try to find via OfficeManager using HousingBlockEntity -> linkedOfficePosLong)
+        // We cannot get housingBlockEntity instance here, so leave destination as NaN; HousingBlockEntity.spawnPassengerWithRoute handles it when used.
+        passenger.destinationX = Double.NaN;
+        passenger.destinationY = Double.NaN;
+        passenger.destinationZ = Double.NaN;
+
         synchronized (PassengerManager.PASSENGER_LIST) {
             PassengerManager.PASSENGER_LIST.add(passenger);
         }

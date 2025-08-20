@@ -174,22 +174,22 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
     }
 
     public void spawnPassengersIfTime(World world, long worldTime) {
-        System.out.println("[spawnPassengersIfTime] worldTime=" + worldTime + ", householdSize=" + householdSize + ", spawnedToday=" + spawnedToday + ", cachedRoute=" + cachedRoute);
+        //System.out.println("[spawnPassengersIfTime] worldTime=" + worldTime + ", householdSize=" + householdSize + ", spawnedToday=" + spawnedToday + ", cachedRoute=" + cachedRoute);
 
         long currentDay = worldTime / 24000L;
         if (lastSpawnDay != currentDay) {
             spawnedToday = 0;
             lastSpawnDay = (int) currentDay;
-            System.out.println("[spawnPassengersIfTime] new day detected. Reset spawnedToday");
+            //System.out.println("[spawnPassengersIfTime] new day detected. Reset spawnedToday");
         }
 
         if (spawnedToday >= householdSize) {
-            System.out.println("[spawnPassengersIfTime] spawnedToday reached householdSize, skipping spawn");
+            //System.out.println("[spawnPassengersIfTime] spawnedToday reached householdSize, skipping spawn");
             return;
         }
 
         if (cachedRoute == null || cachedRoute.isEmpty()) {
-            System.out.println("[spawnPassengersIfTime] cachedRoute is null or empty, skipping spawn");
+            //System.out.println("[spawnPassengersIfTime] cachedRoute is null or empty, skipping spawn");
             return;
         }
 
@@ -218,6 +218,21 @@ public class HousingBlockEntity extends BlockEntity implements ExtendedScreenHan
         passenger.route = platformIdList;
         passenger.routeTargetIndex = 0;
         passenger.moveState = Passenger.MoveState.WALKING_TO_PLATFORM;
+
+        // --- 新規: 最終目的地（オフィス）座標を passenger に保存しておく ---
+        if (this.linkedOfficePosLong != null) {
+            BlockPos officeBlockPos = BlockPos.fromLong(this.linkedOfficePosLong);
+            passenger.destinationX = officeBlockPos.getX() + 0.5;
+            passenger.destinationY = officeBlockPos.getY() + 1.0;
+            passenger.destinationZ = officeBlockPos.getZ() + 0.5;
+        } else {
+            // 不明なら NaN のまま（PassengerMovement でフォールバックして消去）
+            passenger.destinationX = Double.NaN;
+            passenger.destinationY = Double.NaN;
+            passenger.destinationZ = Double.NaN;
+        }
+
+        // boarding/alight fields may be set later by PassengerMovement when they board a train
         synchronized (PassengerManager.PASSENGER_LIST) {
             PassengerManager.PASSENGER_LIST.add(passenger);
         }

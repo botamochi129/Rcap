@@ -1,0 +1,9 @@
+{
+  "block.rcap.housing_block": "Housing Block",
+  "block.rcap.office_block": "Office Block",
+  "block.rcap.riding_pos_block": "Riding Position Block",
+  "rcap.dashboard.company": "Company",
+  "rcap.edit_company.title": "Edit Company",
+  "rcap.edit_company.name": "Company Name",
+  "rcap.gui.add": "Add Company"
+}
