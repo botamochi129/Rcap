@@ -1,7 +1,11 @@
 package com.botamochi.rcap.client.render;
 
+import com.botamochi.rcap.mixin.TrainAccessor;
 import com.botamochi.rcap.passenger.Passenger;
 import com.botamochi.rcap.passenger.PassengerManager;
+import mtr.client.ClientData;
+import mtr.client.TrainClientRegistry;
+import mtr.data.TrainClient;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.LightmapTextureManager;
@@ -13,6 +17,7 @@ import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.client.render.entity.model.EntityModelLayers;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.LightType;
 
 import java.util.ArrayList;
@@ -46,6 +51,24 @@ public class PassengerRenderer {
             }
 
             for (Passenger passenger : passengers) {
+                if (passenger.moveState == Passenger.MoveState.ON_TRAIN && passenger.currentTrainId != null) {
+                    TrainClient matchedTrain = null;
+                    for (TrainClient trainClient : ClientData.TRAINS) {
+                        if (trainClient != null && trainClient.id == passenger.currentTrainId) {
+                            matchedTrain = trainClient;
+                            break;
+                        }
+                    }
+
+                    if (matchedTrain != null) {
+                        Vec3d posRaw = ((TrainAccessor) matchedTrain).callGetRoutePosition(0, matchedTrain.spacing);
+                        Vec3d trainPos = new Vec3d(posRaw.x, posRaw.y, posRaw.z);
+                        passenger.x = trainPos.x;
+                        passenger.y = trainPos.y + 1.1;
+                        passenger.z = trainPos.z;
+                    }
+                }
+
                 double dx = passenger.x - camera.getPos().x;
                 double dy = passenger.y - camera.getPos().y;
                 double dz = passenger.z - camera.getPos().z;

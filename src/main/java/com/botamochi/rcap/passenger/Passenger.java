@@ -40,6 +40,8 @@ public class Passenger {
     // 新規追加：ワールドID（Dimensionの名前など）
     public String worldId;
 
+    public Long currentTrainId = null;
+
     // --- コンストラクタ・NBT変換は既存コード＋追加分 ---
 
     public Passenger(long id, String name, double x, double y, double z, int color, String worldId) {

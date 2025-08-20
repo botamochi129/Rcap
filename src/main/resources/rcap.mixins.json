@@ -4,6 +4,7 @@
   "package": "com.botamochi.rcap.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "TrainAccessor"
   ],
   "injectors": {
     "defaultRequire": 1
