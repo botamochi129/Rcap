@@ -37,12 +37,27 @@ public class Passenger {
             new Identifier("rcap", "textures/entity/passenger/custom_skin.png"),
             new Identifier("rcap", "textures/entity/passenger/custom_skin_2.png")
     };
-    // 新規追加：ワールドID（Dimensionの名前など）
+    // ワールドID（Dimensionの名前など）
     public String worldId;
 
+    // クライアントが利用するための（オプショナル）列車参照ID（サーバで特定できればセットされるが、MTRでは基本取得不可）
     public Long currentTrainId = null;
 
-    // --- コンストラクタ・NBT変換は既存コード＋追加分 ---
+    // --- 追加フィールド（サーバがスケジュール情報からセットする） ---
+    // 乗車開始推定時刻（millis）。
+    public long boardingTimeMillis = -1L;
+    // 降車推定時刻（millis）。
+    public long alightTimeMillis = -1L;
+    // 乗車したプラットフォームID（板のID）
+    public long boardingPlatformId = -1L;
+    // 降車予定のプラットフォームID
+    public long alightingPlatformId = -1L;
+    // スケジュールから得られた routeId（スケジュールの routeId を保持しておく）
+    public long scheduledRouteId = -1L;
+
+    // 追加: サーバが計算したプラットフォーム座標（クライアントが platformId を持っていない場合のフォールバック）
+    public double boardingX = Double.NaN, boardingY = Double.NaN, boardingZ = Double.NaN;
+    public double alightX = Double.NaN, alightY = Double.NaN, alightZ = Double.NaN;
 
     public Passenger(long id, String name, double x, double y, double z, int color, String worldId) {
         this.id = id;
@@ -64,7 +79,7 @@ public class Passenger {
         tag.putDouble("y", y);
         tag.putDouble("z", z);
         tag.putInt("color", color);
-        tag.putString("worldId", worldId); // 追加
+        tag.putString("worldId", worldId);
 
         // ルート保存
         NbtList listTag = new NbtList();
@@ -75,8 +90,22 @@ public class Passenger {
 
         tag.putInt("routeTargetIndex", routeTargetIndex);
         tag.putInt("moveState", moveState.ordinal());
-
         tag.putInt("skinIndex", skinIndex);
+
+        // 追加フィールド
+        tag.putLong("boardingTimeMillis", boardingTimeMillis);
+        tag.putLong("alightTimeMillis", alightTimeMillis);
+        tag.putLong("boardingPlatformId", boardingPlatformId);
+        tag.putLong("alightingPlatformId", alightingPlatformId);
+        tag.putLong("scheduledRouteId", scheduledRouteId);
+
+        // 座標保存（DoubleをNBTに）
+        tag.putDouble("boardingX", boardingX);
+        tag.putDouble("boardingY", boardingY);
+        tag.putDouble("boardingZ", boardingZ);
+        tag.putDouble("alightX", alightX);
+        tag.putDouble("alightY", alightY);
+        tag.putDouble("alightZ", alightZ);
 
         return tag;
     }
@@ -95,10 +124,9 @@ public class Passenger {
 
         p.route.clear();
         if (tag.contains("route")) {
-            NbtList routeList = tag.getList("route", NbtElement.LONG_TYPE); // TYPE=4はNbtLong
-
+            NbtList routeList = tag.getList("route", NbtElement.LONG_TYPE);
             for (int i = 0; i < routeList.size(); i++) {
-                NbtElement element = routeList.get(i);
+                var element = routeList.get(i);
                 if (element instanceof NbtLong nbtLong) {
                     p.route.add(nbtLong.longValue());
                 }
@@ -114,6 +142,23 @@ public class Passenger {
             p.moveState = MoveState.IDLE;
         }
         p.skinIndex = tag.contains("skinIndex") ? tag.getInt("skinIndex") : (int)(Math.random() * SKINS.length);
+
+        p.boardingTimeMillis = tag.contains("boardingTimeMillis") ? tag.getLong("boardingTimeMillis") : -1L;
+        p.alightTimeMillis = tag.contains("alightTimeMillis") ? tag.getLong("alightTimeMillis") : -1L;
+        p.boardingPlatformId = tag.contains("boardingPlatformId") ? tag.getLong("boardingPlatformId") : -1L;
+        p.alightingPlatformId = tag.contains("alightingPlatformId") ? tag.getLong("alightingPlatformId") : -1L;
+        p.scheduledRouteId = tag.contains("scheduledRouteId") ? tag.getLong("scheduledRouteId") : -1L;
+
+        p.boardingX = tag.contains("boardingX") ? tag.getDouble("boardingX") : Double.NaN;
+        p.boardingY = tag.contains("boardingY") ? tag.getDouble("boardingY") : Double.NaN;
+        p.boardingZ = tag.contains("boardingZ") ? tag.getDouble("boardingZ") : Double.NaN;
+        p.alightX = tag.contains("alightX") ? tag.getDouble("alightX") : Double.NaN;
+        p.alightY = tag.contains("alightY") ? tag.getDouble("alightY") : Double.NaN;
+        p.alightZ = tag.contains("alightZ") ? tag.getDouble("alightZ") : Double.NaN;
+
+        // currentTrainId はクライアント側の候補決定で使うため NBT では保持しない（サーバ側で現実に判明しているなら追加可能）
+        p.currentTrainId = null;
+
         return p;
     }
 }
